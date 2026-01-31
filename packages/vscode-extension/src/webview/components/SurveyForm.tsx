@@ -77,9 +77,9 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, onComplete })
     if (analyzing) {
         return (
             <div className="onboarding">
-                <h1>Analyzing Personality...</h1>
-                <p>Running CoD Pipeline...</p>
-                <p className="subtitle">Identifying core traits...</p>
+                <h1>성격 분석 중...</h1>
+                <p>CoD 파이프라인 실행 중...</p>
+                <p className="subtitle">핵심 특성 식별 중...</p>
             </div>
         );
     }
@@ -87,10 +87,10 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, onComplete })
     if (phase === 'bfi') {
         return (
             <div className="survey-form">
-                <h2>Personality Assessment (1/2)</h2>
+                <h2>성격 유형 검사 (1/2)</h2>
                 <p className="subtitle">
-                    I am someone who...<br />
-                    (1 = Disagree Strongly, 5 = Agree Strongly)
+                    나는...<br />
+                    (1 = 전혀 그렇지 않다, 5 = 매우 그렇다)
                 </p>
 
                 <div className="questions">
@@ -107,7 +107,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, onComplete })
                     onClick={handleBfiSubmit}
                     disabled={Object.keys(bfiResponses).length !== BFI_QUESTIONS.length}
                 >
-                    Next: Values Assessment →
+                    다음: 가치관 검사 →
                 </button>
             </div>
         );
@@ -115,10 +115,10 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, onComplete })
 
     return (
         <div className="survey-form">
-            <h2>Values Assessment (2/2)</h2>
+            <h2>가치관 검사 (2/2)</h2>
             <p className="subtitle">
-                How much is this person like you?<br />
-                (1 = Not like me at all, 6 = Very much like me)
+                이 사람은 당신과 얼마나 비슷한가요?<br />
+                (1 = 전혀 그렇지 않다, 6 = 매우 그렇다)
             </p>
 
             <div className="questions">
@@ -135,7 +135,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, onComplete })
                 onClick={handlePvqSubmit}
                 disabled={Object.keys(pvqResponses).length !== PVQ_QUESTIONS.length}
             >
-                Complete & Generate Analysis
+                완료 및 분석 생성
             </button>
         </div>
     );

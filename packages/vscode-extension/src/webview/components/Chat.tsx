@@ -19,8 +19,8 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
             id: '1',
             author: 'bot',
             content: character === 'aru'
-                ? "Hmph! So you finally decided to show up? Well, I suppose I'll help you... but don't expect me to go easy on you! 💢"
-                : "Hello! I'm ready to help you with your code. Let's analyze the problem systematically. 🔍"
+                ? "흥! 이제야 온 거야? 뭐, 도와주긴 하겠지만... 봐줄 생각은 마! 💢"
+                : "안녕하세요. 코드를 분석할 준비가 되었습니다. 체계적으로 문제를 해결해 봅시다. 🔍"
         }
     ]);
     const [inputValue, setInputValue] = useState('');
@@ -147,7 +147,7 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                 />
                 <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
                 <span className="status">
-                    {isLoading ? '💭 Thinking...' : '🟢 Online'}
+                    {isLoading ? '💭 생각 중...' : '🟢 온라인'}
                 </span>
             </div>
 
@@ -174,12 +174,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
+                    placeholder="메시지를 입력하세요..."
                     rows={1}
                     disabled={isLoading}
                 />
                 <button onClick={handleSend} disabled={isLoading || !inputValue.trim()}>
-                    Send
+                    전송
                 </button>
             </div>
         </div>

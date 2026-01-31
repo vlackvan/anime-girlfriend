@@ -30,6 +30,11 @@
                 "command": "anime-girlfriend.resetProfile",
                 "title": "Reset Profile (Re-Onboard)",
                 "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.debugProfile",
+                "title": "Debug: Show Stored Profile",
+                "category": "Anime Girlfriend"
             }
         ],
         "viewsContainers": {

@@ -63,6 +63,18 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('anime-girlfriend.retakeSurvey', async () => {
             chatPanel.sendCommand('goToStep', 'survey');
             vscode.window.showInformationMessage('Retaking personality survey...');
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.debugProfile', async () => {
+            const profile = userDataStore.loadProfile();
+            const content = profile
+                ? JSON.stringify(profile, null, 2)
+                : 'No profile found. Please complete the onboarding.';
+
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: 'json'
+            });
+            await vscode.window.showTextDocument(doc);
         })
     );
 
