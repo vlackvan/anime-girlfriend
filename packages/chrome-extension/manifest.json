@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "BOJ-GF-Companion-Sensor",
+  "version": "1.0",
+  "description": "백준 정답 결과를 감지하여 VSCode로 송신합니다.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.acmicpc.net/*",
+    "http://localhost:3000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.acmicpc.net/status*"],
+      "js": ["content.js"]
+    }
+  ]
+}
