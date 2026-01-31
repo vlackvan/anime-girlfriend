@@ -1,0 +1,92 @@
+{
+    "name": "anime-girlfriend",
+    "displayName": "Anime Girlfriend - BOJ Companion",
+    "description": "Your supportive anime companion for competitive programming with BOJ integration",
+    "version": "0.1.0",
+    "publisher": "anime-girlfriend",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "anime-girlfriend.showChat",
+                "title": "Show Chat",
+                "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.enterApiKey",
+                "title": "Enter OpenAI API Key",
+                "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.resetProfile",
+                "title": "Reset Profile (Re-Onboard)",
+                "category": "Anime Girlfriend"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "anime-girlfriend",
+                    "title": "Anime Girlfriend",
+                    "icon": "assets/icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "anime-girlfriend": [
+                {
+                    "id": "anime-girlfriend.chat",
+                    "name": "Chat",
+                    "type": "webview"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "Anime Girlfriend",
+            "properties": {
+                "anime-girlfriend.serverPort": {
+                    "type": "number",
+                    "default": 3000,
+                    "description": "Port for the local server that receives BOJ signals"
+                },
+                "anime-girlfriend.openaiModel": {
+                    "type": "string",
+                    "default": "gpt-4o-mini",
+                    "enum": [
+                        "gpt-4o-mini",
+                        "gpt-4o",
+                        "gpt-3.5-turbo"
+                    ],
+                    "description": "OpenAI model for chat"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "node esbuild.js",
+        "watch": "node esbuild.js --watch",
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/node": "^18.0.0",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "@types/vscode": "^1.74.0",
+        "esbuild": "^0.19.0",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    }
+}
