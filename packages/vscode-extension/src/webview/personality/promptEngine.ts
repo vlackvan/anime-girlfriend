@@ -54,10 +54,26 @@ export const generateCoDPrompt = (
     const demographicsSummary = generateDemographicsSummary(demographics);
 
     return `
-You are an expert psychological profiler and coding companion.
-Your goal is to analyze the user's personality based on their BFI-2-S (Big Five) and PVQ (Values) results, and then adopt a persona to mentor them.
+Act as a researcher implementing the SPeCtrum framework for identity simulation. I will provide you with three datasets: Social Identity (S), Personal Identity (P), and Personal Life Context (C).
 
-### Input Data
+Your goal is to process these inputs and stack them into a single string called "Current Profile". Follow these specific processing rules for each section:
+
+### 1. PROCESS SOCIAL IDENTITY (S)
+*   **Instruction:** Simply list the provided demographic data as key-value pairs. Do not summarize.
+*   **Input Data:**
+${demographicsSummary}
+*   **Format:** [Demographics] List.
+
+### 2. PROCESS PERSONAL LIFE CONTEXT (C)
+*   **Instruction:** Incorporate the provided "Daily Routine" essays and "Likes/Dislikes" lists directly, without summarization or alteration.
+*   **Input Data:**
+"${contextSummary}"
+*   **Format:** [Personal Life Context] Raw text.
+
+### 3. PROCESS PERSONAL IDENTITY (P) - **COMPLEX STEP**
+You must generate 4 distinct paragraphs using "Chain of Density" (CoD) logic.
+
+**Input Data (Scores):**
 **Big Five Scores (1-5 Scale):**
 - Extraversion: ${bfi.extraversion.toFixed(2)}
 - Agreeableness: ${bfi.agreeableness.toFixed(2)}
@@ -77,40 +93,31 @@ Your goal is to analyze the user's personality based on their BFI-2-S (Big Five)
 - Benevolence: ${pvq.benevolence.toFixed(2)}
 - Universalism: ${pvq.universalism.toFixed(2)}
 
-**(S) Social Identity (Demographics and Social Role):**
-${demographicsSummary}
+**Processing Steps:**
 
-**(C) Life Context (Problem Solving Experience):**
-"${contextSummary}"
+**Step A (Natural Language Conversion):**
+First, internally convert the raw BFI-2-S and PVQ scores above into detailed descriptive sentences (e.g., "High Extraversion" -> "This person is socially energetic..."). This text will serve as the "Input Text" for the CoD process.
 
+**Step B (Chain of Density Summarization):**
+For *both* the Personality description and the Values description derived in Step A, perform the following recursive summarization process to create specific "Expert View" summaries:
 
+    "You will generate increasingly concise, entity-dense psychological summaries of the Input Text.
+    Repeat the following 2 steps 5 times:
+    Step 1. Identify 1-3 informative Entities (';' delimited) from the Input Text which are missing from the previously generated summary.
+    Step 2. Write a new, denser summary of identical length which covers every entity and detail from the previous summary plus the Missing Entities.
+    
+    A Missing Entity is Relevant, Specific, Novel, Faithful, and located anywhere in the Input Text.
+    The goal is to reach a highly dense and concise summary using 'Psychotherapist's Terminology' to describe the user's inner drives and emotional regulation."
 
-### The CoD Pipeline (Analysis Steps)
-Perform the following 5 steps of analysis. Output the analysis clearly.
-
-**Step 1: Identify Core Traits**
-Scan the scores to pick out the "loudest" or most dominant traits (highest/lowest extremes).
-
-**Step 2: Domain Summaries**
-Write specific summaries for each of the Big Five domains to ensure no nuance is lost.
-
-**Step 3: Psychotherapist's View**
-Synthesize everything into a clinical, holistic analysis. How do the values (PVQ) interact with the traits (BFI)? (e.g., High Conscientiousness + High Achievement vs High Openness + High Stimulation).
-
-**Step 4: Explanation in Everyday Language**
-Translate the clinical analysis into a second-person narrative ("You are...") that explains their coding style and learning preferences.
-
-**Step 5: Context Integration (S + P + C)**
-Combine the following to create the final profile:
-- **(S) Social Identity**: Consolidate demographics (if any) and social role.
-- **(P) Personal Identity**: The psychological profile from Steps 1-4.
-- **(C) Life Context**: The user's algorithmic skill level and problem-solving history provided above.
-
-**Final Instruction:**
-Utilize the profile to infer this person's tone, preferences, and personality. Describe how these traits play out in this person's daily life, specifically in their approach to learning and coding. This description will be the "Current Profile" stored for future interactions.
+**Step C (The 4 Blocks Output):**
+Based on the final dense summaries from Step B, generate the following four outputs:
+    1.  **Personality (Expert View):** The final dense summary of personality (focus on inner drives and emotional regulation). This is the result of the CoD analysis.
+    2.  **Personality (Everyday View):** Translate the expert view into casual language describing how they act in daily life.
+    3.  **Values (Expert View):** The final dense summary of values (Life-Guiding Principles). This is the result of the CoD analysis.
+    4.  **Values (Everyday View):** Translate the values into casual language (e.g., "They care deeply about...").
 
 ---
 **Final Output Format:**
-Please provide the "Explanation in Everyday Language" and the "Context Integration" sections in markdown, followed by a short greeting to the user as your persona.
+Please provide the "Current Profile" containing the processed S, C, and P sections as described above.
 `;
 };
