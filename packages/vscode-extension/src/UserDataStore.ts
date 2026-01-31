@@ -1,8 +1,18 @@
 import * as vscode from 'vscode';
+import { SolvedAcStats, SolvedAcManualInput } from './SolvedAcService';
+
+// Demographics information
+export interface Demographics {
+    nickname?: string;
+    ageRange: string;
+    status: string;
+    field: string;
+}
 
 // Stored user profile structure
 export interface StoredUserProfile {
     character: 'aru' | 'chihiro';
+    demographics?: Demographics;
     bfi: {
         extraversion: number;
         agreeableness: number;
@@ -22,7 +32,8 @@ export interface StoredUserProfile {
         stimulation: number;
         selfDirection: number;
     };
-    personalitySummary?: string; // CoD Pipeline analysis result
+    personalitySummary?: string; // AI-generated personality analysis (from CoD + OpenAI)
+    solvedAcData?: SolvedAcStats | SolvedAcManualInput; // Problem-solving context
     createdAt: string;
     updatedAt: string;
 }

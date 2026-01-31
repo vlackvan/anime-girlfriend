@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
 import { StoredUserProfile } from './UserDataStore';
 import { CodeContextProvider } from './CodeContextProvider';
+import { generateCoDPrompt } from './webview/personality/promptEngine';
+import { BFIScores, PVQScores, Character } from './webview/personality/types';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -133,6 +135,46 @@ export class ChatGPTService {
         } catch (error) {
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
         }
+    }
+
+    /**
+     * Generate personality analysis using CoD pipeline
+     */
+    async generatePersonalityAnalysis(
+        bfi: BFIScores,
+        pvq: PVQScores,
+        character: Character,
+        contextSummary: string,
+        demographics?: any
+    ): Promise<string> {
+        const apiKey = await this.apiKeyManager.getApiKey();
+        if (!apiKey) {
+            throw new Error('No API key configured');
+        }
+
+        const prompt = generateCoDPrompt(bfi, pvq, character, contextSummary, demographics);
+        const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'system', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 1500
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Analysis failed: ${response.status}`);
+        }
+
+        const data: any = await response.json();
+        return data.choices[0].message.content;
     }
 
     /**

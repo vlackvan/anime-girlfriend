@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:solvedac.github.io)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(npm run compile:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

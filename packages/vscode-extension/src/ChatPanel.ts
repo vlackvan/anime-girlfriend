@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
 import { UserDataStore, StoredUserProfile } from './UserDataStore';
 import { ChatGPTService } from './ChatGPTService';
+import { SolvedAcService } from './SolvedAcService';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -9,6 +10,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private apiKeyManager: ApiKeyManager;
     private userDataStore: UserDataStore;
     private chatGPTService: ChatGPTService;
+    private solvedAcService: SolvedAcService;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -20,6 +22,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.apiKeyManager = apiKeyManager;
         this.userDataStore = userDataStore;
         this.chatGPTService = chatGPTService;
+        this.solvedAcService = new SolvedAcService();
     }
 
     resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -57,6 +60,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     this.chatGPTService.setUserProfile(undefined);
                     this.chatGPTService.clearHistory();
                     break;
+
+                case 'fetchSolvedacStats':
+                    await this.handleFetchSolvedacStats(message.handle);
+                    break;
+
+                case 'generatePersonality':
+                    await this.handleGeneratePersonality(message.data);
+                    break;
             }
         });
     }
@@ -78,9 +89,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private async handleSaveProfile(profileData: any) {
         const profile: Omit<StoredUserProfile, 'createdAt' | 'updatedAt'> = {
             character: profileData.character,
+            demographics: profileData.demographics,
             bfi: profileData.bfi,
             pvq: profileData.pvq,
-            personalitySummary: profileData.analysis
+            personalitySummary: profileData.analysis,
+            solvedAcData: profileData.solvedAcData
         };
 
         await this.userDataStore.saveProfile(profile);
@@ -95,6 +108,56 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             type: 'profileSaved',
             success: true
         });
+    }
+
+    private async handleFetchSolvedacStats(handle: string) {
+        try {
+            console.log('[ChatPanel] Fetching Solved.ac stats for:', handle);
+            const stats = await this.solvedAcService.getStatsSummary(handle);
+
+            this.postMessage({
+                type: 'solvedacStatsFetched',
+                data: stats
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to fetch Solved.ac stats:', error);
+            this.postMessage({
+                type: 'solvedacStatsFetched',
+                error: error instanceof Error ? error.message : '통계를 가져오는데 실패했습니다.'
+            });
+        }
+    }
+
+    private async handleGeneratePersonality(data: any) {
+        try {
+            console.log('[ChatPanel] Generating personality analysis...');
+
+            const { bfi, pvq, character, contextSummary, demographics, solvedAcData } = data;
+
+            // Call OpenAI to generate personality analysis
+            const personalitySummary = await this.chatGPTService.generatePersonalityAnalysis(
+                bfi,
+                pvq,
+                character,
+                contextSummary,
+                demographics
+            );
+
+            console.log('[ChatPanel] Personality generated successfully');
+
+            this.postMessage({
+                type: 'personalityGenerated',
+                summary: personalitySummary,
+                contextSummary: contextSummary,
+                solvedAcData: solvedAcData // Send back the solvedAcData that was received
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to generate personality:', error);
+            this.postMessage({
+                type: 'personalityGenerationError',
+                error: error instanceof Error ? error.message : '성격 분석 생성에 실패했습니다.'
+            });
+        }
     }
 
     private async handleChatMessage(content: string) {

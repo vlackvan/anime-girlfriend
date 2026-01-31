@@ -24,12 +24,22 @@ export interface PVQScores {
     selfDirection: number;
 }
 
+// Demographics
+export interface Demographics {
+    nickname?: string;
+    ageRange: string;
+    status: string;
+    field: string;
+}
+
 // Combined user profile
 export interface UserProfile {
     bfi: BFIScores;
     pvq: PVQScores;
     character: Character;
+    demographics?: Demographics;
     analysis?: string; // CoD Pipeline Analysis
+    isFirstMeeting?: boolean; // Flag for initial greeting after onboarding
 }
 
 // Survey question structure
