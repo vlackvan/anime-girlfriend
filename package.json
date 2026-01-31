@@ -25,6 +25,11 @@
                 "command": "anime-girlfriend.enterApiKey",
                 "title": "Enter OpenAI API Key",
                 "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.resetProfile",
+                "title": "Reset Profile (Re-Onboard)",
+                "category": "Anime Girlfriend"
             }
         ],
         "viewsContainers": {

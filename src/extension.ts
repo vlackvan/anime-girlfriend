@@ -3,6 +3,8 @@ import * as http from 'http';
 import { ChatPanel } from './ChatPanel';
 import { ApiKeyManager } from './ApiKeyManager';
 import { LocalServer } from './LocalServer';
+import { UserDataStore } from './UserDataStore';
+import { ChatGPTService } from './ChatGPTService';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('[Anime Girlfriend] Extension activating...');
@@ -10,8 +12,26 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize API Key Manager
     const apiKeyManager = new ApiKeyManager(context.secrets);
 
+    // Initialize User Data Store
+    const userDataStore = new UserDataStore(context.globalState);
+
+    // Initialize ChatGPT Service
+    const chatGPTService = new ChatGPTService(apiKeyManager);
+
+    // Load saved profile and set it in ChatGPT service
+    const savedProfile = userDataStore.loadProfile();
+    if (savedProfile) {
+        chatGPTService.setUserProfile(savedProfile);
+        console.log('[Anime Girlfriend] Loaded saved profile for:', savedProfile.character);
+    }
+
     // Initialize Chat Panel
-    const chatPanel = new ChatPanel(context.extensionUri, apiKeyManager);
+    const chatPanel = new ChatPanel(
+        context.extensionUri,
+        apiKeyManager,
+        userDataStore,
+        chatGPTService
+    );
 
     // Initialize Local Server for BOJ signals
     const port = vscode.workspace.getConfiguration('anime-girlfriend').get('serverPort', 3000);
@@ -32,6 +52,12 @@ export async function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('anime-girlfriend.enterApiKey', async () => {
             await apiKeyManager.enterApiKey();
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.resetProfile', async () => {
+            await userDataStore.clearProfile();
+            chatGPTService.setUserProfile(undefined);
+            chatGPTService.clearHistory();
+            vscode.window.showInformationMessage('Profile cleared. Restart the chat to re-onboard.');
         })
     );
 

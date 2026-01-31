@@ -5,6 +5,7 @@ interface Message {
     id: string;
     author: 'user' | 'bot';
     content: string;
+    isStreaming?: boolean;
 }
 
 interface ChatProps {
@@ -18,12 +19,13 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
             id: '1',
             author: 'bot',
             content: character === 'aru'
-                ? "Hmph! So you finally decided to show up? Well, I suppose I'll help you... but don't expect me to go easy on you!"
-                : "Hello! I'm ready to help you debug your code. Let's analyze the problem systematically."
+                ? "Hmph! So you finally decided to show up? Well, I suppose I'll help you... but don't expect me to go easy on you! 💢"
+                : "Hello! I'm ready to help you with your code. Let's analyze the problem systematically. 🔍"
         }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -38,19 +40,75 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
 
-            if (message.type === 'botMessage') {
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    author: 'bot',
-                    content: message.content
-                }]);
-                setIsLoading(false);
+            switch (message.type) {
+                case 'botMessageStart':
+                    // Start a new streaming message
+                    setStreamingMessageId(message.id);
+                    setMessages(prev => [...prev, {
+                        id: message.id,
+                        author: 'bot',
+                        content: '',
+                        isStreaming: true
+                    }]);
+                    break;
+
+                case 'botMessageToken':
+                    // Append token to streaming message
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === streamingMessageId
+                            ? { ...msg, content: msg.content + message.token }
+                            : msg
+                    ));
+                    break;
+
+                case 'botMessageComplete':
+                    // Mark streaming as complete
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === streamingMessageId
+                            ? { ...msg, content: message.content, isStreaming: false }
+                            : msg
+                    ));
+                    setStreamingMessageId(null);
+                    setIsLoading(false);
+                    break;
+
+                case 'botMessageError':
+                    // Handle error
+                    setMessages(prev => {
+                        // If there's a streaming message, update it with error
+                        if (streamingMessageId) {
+                            return prev.map(msg =>
+                                msg.id === streamingMessageId
+                                    ? { ...msg, content: `❌ Error: ${message.error}`, isStreaming: false }
+                                    : msg
+                            );
+                        }
+                        // Otherwise add a new error message
+                        return [...prev, {
+                            id: Date.now().toString(),
+                            author: 'bot',
+                            content: `❌ Error: ${message.error}`
+                        }];
+                    });
+                    setStreamingMessageId(null);
+                    setIsLoading(false);
+                    break;
+
+                case 'botMessage':
+                    // Legacy: non-streaming message
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        author: 'bot',
+                        content: message.content
+                    }]);
+                    setIsLoading(false);
+                    break;
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [streamingMessageId]);
 
     const handleSend = () => {
         if (!inputValue.trim() || isLoading) return;
@@ -88,15 +146,20 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                     className="avatar"
                 />
                 <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                <span className="status">
+                    {isLoading ? '💭 Thinking...' : '🟢 Online'}
+                </span>
             </div>
 
             <div className="messages">
                 {messages.map((msg) => (
                     <div key={msg.id} className={`message ${msg.author}`}>
-                        <div className="bubble">{msg.content}</div>
+                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                            {msg.content || (msg.isStreaming && '...')}
+                        </div>
                     </div>
                 ))}
-                {isLoading && (
+                {isLoading && !streamingMessageId && (
                     <div className="message bot">
                         <div className="bubble typing">
                             <span>.</span><span>.</span><span>.</span>
@@ -113,6 +176,7 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                     onKeyPress={handleKeyPress}
                     placeholder="Type your message..."
                     rows={1}
+                    disabled={isLoading}
                 />
                 <button onClick={handleSend} disabled={isLoading || !inputValue.trim()}>
                     Send
@@ -121,3 +185,4 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
         </div>
     );
 };
+

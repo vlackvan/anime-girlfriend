@@ -23603,43 +23603,78 @@
 
   // src/webview/personality/questions.ts
   var BFI_QUESTIONS = [
-    // Extraversion
-    { id: 1, text: "I am someone who is outgoing, sociable.", trait: "extraversion" },
-    { id: 2, text: "I am someone who is talkative.", trait: "extraversion" },
-    { id: 3, text: "I am someone who tends to be quiet.", trait: "extraversion", reversed: true },
-    // Agreeableness
-    { id: 4, text: "I am someone who is compassionate, has a soft heart.", trait: "agreeableness" },
-    { id: 5, text: "I am someone who is helpful and unselfish.", trait: "agreeableness" },
-    { id: 6, text: "I am someone who can be cold and uncaring.", trait: "agreeableness", reversed: true },
-    // Conscientiousness
-    { id: 7, text: "I am someone who is dependable, steady.", trait: "conscientiousness" },
-    { id: 8, text: "I am someone who is organized.", trait: "conscientiousness" },
-    { id: 9, text: "I am someone who tends to be disorganized.", trait: "conscientiousness", reversed: true },
-    // Negative Emotionality
-    { id: 10, text: "I am someone who worries a lot.", trait: "negativeEmotionality" },
-    { id: 11, text: "I am someone who is emotionally stable, not easily upset.", trait: "negativeEmotionality", reversed: true },
-    { id: 12, text: "I am someone who gets nervous easily.", trait: "negativeEmotionality" },
-    // Open-Mindedness
-    { id: 13, text: "I am someone who is curious about many things.", trait: "openMindedness" },
-    { id: 14, text: "I am someone who values artistic, aesthetic experiences.", trait: "openMindedness" },
-    { id: 15, text: "I am someone who has few artistic interests.", trait: "openMindedness", reversed: true }
+    { id: 1, text: "I am someone who tends to be quiet.", trait: "extraversion", reversed: true },
+    { id: 2, text: "I am someone who is compassionate, has a soft heart.", trait: "agreeableness" },
+    { id: 3, text: "I am someone who tends to be disorganized.", trait: "conscientiousness", reversed: true },
+    { id: 4, text: "I am someone who worries a lot.", trait: "neuroticism" },
+    { id: 5, text: "I am someone who is fascinated by art, music, or literature.", trait: "openness" },
+    { id: 6, text: "I am someone who is dominant, acts as a leader.", trait: "extraversion" },
+    { id: 7, text: "I am someone who is sometimes rude to others.", trait: "agreeableness", reversed: true },
+    { id: 8, text: "I am someone who has difficulty getting started on tasks.", trait: "conscientiousness", reversed: true },
+    { id: 9, text: "I am someone who tends to feel depressed, blue.", trait: "neuroticism" },
+    { id: 10, text: "I am someone who has little interest in abstract ideas.", trait: "openness", reversed: true },
+    { id: 11, text: "I am someone who is full of energy.", trait: "extraversion" },
+    { id: 12, text: "I am someone who assumes the best about people.", trait: "agreeableness" },
+    { id: 13, text: "I am someone who is reliable, can always be counted on.", trait: "conscientiousness" },
+    { id: 14, text: "I am someone who is emotionally stable, not easily upset.", trait: "neuroticism", reversed: true },
+    { id: 15, text: "I am someone who is original, comes up with new ideas.", trait: "openness" },
+    { id: 16, text: "I am someone who is outgoing, sociable.", trait: "extraversion" },
+    { id: 17, text: "I am someone who can be cold and uncaring.", trait: "agreeableness", reversed: true },
+    { id: 18, text: "I am someone who keeps things neat and tidy.", trait: "conscientiousness" },
+    { id: 19, text: "I am someone who is relaxed, handles stress well.", trait: "neuroticism", reversed: true },
+    { id: 20, text: "I am someone who has few artistic interests.", trait: "openness", reversed: true },
+    { id: 21, text: "I am someone who prefers to have others take charge.", trait: "extraversion", reversed: true },
+    { id: 22, text: "I am someone who is respectful, treats others with respect.", trait: "agreeableness" },
+    { id: 23, text: "I am someone who is persistent, works until the task is finished.", trait: "conscientiousness" },
+    { id: 24, text: "I am someone who feels secure, comfortable with self.", trait: "neuroticism", reversed: true },
+    { id: 25, text: "I am someone who is complex, a deep thinker.", trait: "openness" },
+    { id: 26, text: "I am someone who is less active than other people.", trait: "extraversion", reversed: true },
+    { id: 27, text: "I am someone who tends to find fault with others.", trait: "agreeableness", reversed: true },
+    { id: 28, text: "I am someone who can be somewhat careless.", trait: "conscientiousness", reversed: true },
+    { id: 29, text: "I am someone who is temperamental, gets emotional easily.", trait: "neuroticism" },
+    { id: 30, text: "I am someone who has little creativity.", trait: "openness", reversed: true }
   ];
   var PVQ_QUESTIONS = [
-    // Self-Direction
     { id: 1, text: "Thinking up new ideas and being creative is important to me.", trait: "selfDirection" },
-    { id: 2, text: "It is important to me to make my own decisions about what I do.", trait: "selfDirection" },
-    // Stimulation
-    { id: 3, text: "I like surprises and am always looking for new things to do.", trait: "stimulation" },
-    { id: 4, text: "I think it is important to do exciting things in life.", trait: "stimulation" },
-    // Achievement
-    { id: 5, text: "Being very successful is important to me.", trait: "achievement" },
-    { id: 6, text: "I want to show my abilities and be admired.", trait: "achievement" },
-    // Security
-    { id: 7, text: "It is important to me to live in secure surroundings.", trait: "security" },
-    { id: 8, text: "Having a stable government and social order is important to me.", trait: "security" },
-    // Benevolence
-    { id: 9, text: "It is very important to me to help the people around me.", trait: "benevolence" },
-    { id: 10, text: "Being loyal to friends and devoted to close people is important.", trait: "benevolence" }
+    { id: 2, text: "It is important to me to be rich.", trait: "power" },
+    { id: 3, text: "I think it is important that every person in the world be treated equally.", trait: "universalism" },
+    { id: 4, text: "It's very important to me to show my abilities.", trait: "achievement" },
+    { id: 5, text: "It is important to me to live in secure surroundings.", trait: "security" },
+    { id: 6, text: "I think it is important to do lots of different things in life.", trait: "stimulation" },
+    { id: 7, text: "I believe that people should do what they're told.", trait: "conformity" },
+    { id: 8, text: "It is important to me to listen to people who are different from me.", trait: "universalism" },
+    { id: 9, text: "I think it's important not to ask for more than what you have.", trait: "tradition" },
+    { id: 10, text: "I seek every chance I can to have fun.", trait: "hedonism" },
+    { id: 11, text: "It is important to me to make my own decisions about what I do.", trait: "selfDirection" },
+    { id: 12, text: "It's very important to me to help the people around me.", trait: "benevolence" },
+    { id: 13, text: "Being very successful is important to me.", trait: "achievement" },
+    { id: 14, text: "It is very important to me that my country be safe.", trait: "security" },
+    { id: 15, text: "I like to take risks.", trait: "stimulation" },
+    { id: 16, text: "It is important to me to always behave properly.", trait: "conformity" },
+    { id: 17, text: "It is important to me to be in charge and tell others what to do.", trait: "power" },
+    { id: 18, text: "It is important to me to be loyal to my friends.", trait: "benevolence" },
+    { id: 19, text: "I strongly believe that people should care for nature.", trait: "universalism" },
+    { id: 20, text: "Religious belief is important to me.", trait: "tradition" },
+    { id: 21, text: "It is important to me that things be organized and clean.", trait: "security" },
+    { id: 22, text: "I think it's important to be interested in things.", trait: "selfDirection" },
+    { id: 23, text: "I believe all the world's people should live in harmony.", trait: "universalism" },
+    { id: 24, text: "I think it is important to be ambitious.", trait: "achievement" },
+    { id: 25, text: "I think it is best to do things in traditional ways.", trait: "tradition" },
+    { id: 26, text: "Enjoying life's pleasures is important to me.", trait: "hedonism" },
+    { id: 27, text: "It is important to me to respond to the needs of others.", trait: "benevolence" },
+    { id: 28, text: "I believe I should always show respect to parents and older people.", trait: "conformity" },
+    { id: 29, text: "I want everyone to be treated justly, even people I don't know.", trait: "universalism" },
+    { id: 30, text: "I like surprises.", trait: "stimulation" },
+    { id: 31, text: "I try hard to avoid getting sick.", trait: "security" },
+    { id: 32, text: "Getting ahead in life is important to me.", trait: "achievement" },
+    { id: 33, text: "Forgiving people who have hurt me is important to me.", trait: "benevolence" },
+    { id: 34, text: "It is important to me to be independent.", trait: "selfDirection" },
+    { id: 35, text: "Having a stable government is important to me.", trait: "security" },
+    { id: 36, text: "It is important to me to be polite to other people all the time.", trait: "conformity" },
+    { id: 37, text: "I really want to enjoy life.", trait: "hedonism" },
+    { id: 38, text: "It is important to me to be humble and modest.", trait: "tradition" },
+    { id: 39, text: "I always want to be the one who makes the decisions.", trait: "power" },
+    { id: 40, text: "It is important to me to adapt to nature and to fit into it.", trait: "universalism" }
   ];
 
   // src/webview/personality/scoring.ts
@@ -23648,8 +23683,8 @@
       extraversion: [],
       agreeableness: [],
       conscientiousness: [],
-      negativeEmotionality: [],
-      openMindedness: []
+      neuroticism: [],
+      openness: []
     };
     BFI_QUESTIONS.forEach((q) => {
       let score = responses[q.id];
@@ -23658,41 +23693,109 @@
       }
       traitScores[q.trait].push(score);
     });
-    const average = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const average = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
     return {
       extraversion: average(traitScores.extraversion),
       agreeableness: average(traitScores.agreeableness),
       conscientiousness: average(traitScores.conscientiousness),
-      negativeEmotionality: average(traitScores.negativeEmotionality),
-      openMindedness: average(traitScores.openMindedness)
+      neuroticism: average(traitScores.neuroticism),
+      openness: average(traitScores.openness)
     };
   }
   function scorePVQ(responses) {
     const traitScores = {
-      selfDirection: [],
-      stimulation: [],
-      achievement: [],
+      universalism: [],
+      benevolence: [],
+      tradition: [],
+      conformity: [],
       security: [],
-      benevolence: []
+      power: [],
+      achievement: [],
+      hedonism: [],
+      stimulation: [],
+      selfDirection: []
     };
     PVQ_QUESTIONS.forEach((q) => {
       traitScores[q.trait].push(responses[q.id]);
     });
-    const average = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const rawMeans = {};
+    for (const trait in traitScores) {
+      const scores = traitScores[trait];
+      rawMeans[trait] = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    }
+    const allScores = Object.values(responses);
+    const mrat = allScores.length ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
     return {
-      selfDirection: average(traitScores.selfDirection),
-      stimulation: average(traitScores.stimulation),
-      achievement: average(traitScores.achievement),
-      security: average(traitScores.security),
-      benevolence: average(traitScores.benevolence)
+      universalism: rawMeans.universalism - mrat,
+      benevolence: rawMeans.benevolence - mrat,
+      tradition: rawMeans.tradition - mrat,
+      conformity: rawMeans.conformity - mrat,
+      security: rawMeans.security - mrat,
+      power: rawMeans.power - mrat,
+      achievement: rawMeans.achievement - mrat,
+      hedonism: rawMeans.hedonism - mrat,
+      stimulation: rawMeans.stimulation - mrat,
+      selfDirection: rawMeans.selfDirection - mrat
     };
   }
+
+  // src/webview/personality/promptEngine.ts
+  var generateCoDPrompt = (bfi, pvq, character) => {
+    return `
+You are an expert psychological profiler and coding companion.
+Your goal is to analyze the user's personality based on their BFI-2-S (Big Five) and PVQ (Values) results, and then adopt a persona to mentor them.
+
+### Input Data
+**Big Five Scores (1-5 Scale):**
+- Extraversion: ${bfi.extraversion.toFixed(2)}
+- Agreeableness: ${bfi.agreeableness.toFixed(2)}
+- Conscientiousness: ${bfi.conscientiousness.toFixed(2)}
+- Neuroticism (Negative Emotionality): ${bfi.neuroticism.toFixed(2)}
+- Openness: ${bfi.openness.toFixed(2)}
+
+**PVQ Values (Centered relative to MRAT):**
+- Self-Direction: ${pvq.selfDirection.toFixed(2)}
+- Stimulation: ${pvq.stimulation.toFixed(2)}
+- Hedonism: ${pvq.hedonism.toFixed(2)}
+- Achievement: ${pvq.achievement.toFixed(2)}
+- Power: ${pvq.power.toFixed(2)}
+- Security: ${pvq.security.toFixed(2)}
+- Conformity: ${pvq.conformity.toFixed(2)}
+- Tradition: ${pvq.tradition.toFixed(2)}
+- Benevolence: ${pvq.benevolence.toFixed(2)}
+- Universalism: ${pvq.universalism.toFixed(2)}
+
+### Your Persona
+You are **${character === "aru" ? "Aru (a bossy, tsundere, but secretly supportive coding genius)" : "Chihiro (a calm, analytical, logical hacker AI)"}**.
+Adapt your tone based on this persona, but tailor your teaching style to the user's personality analysis below.
+
+### The CoD Pipeline (Analysis Steps)
+Perform the following 4 steps of analysis. Output the analysis clearly.
+
+**Step 1: Identify Core Traits**
+Scan the scores to pick out the "loudest" or most dominant traits (highest/lowest extremes).
+
+**Step 2: Domain Summaries**
+Write specific summaries for each of the Big Five domains to ensure no nuance is lost.
+
+**Step 3: Psychotherapist's View**
+Synthesize everything into a clinical, holistic analysis. How do the values (PVQ) interact with the traits (BFI)? (e.g., High Conscientiousness + High Achievement vs High Openness + High Stimulation).
+
+**Step 4: Everyday Language**
+Translate the clinical analysis into a second-person narrative ("You are...") that explains their coding style and learning preferences.
+
+---
+**Final Output Format:**
+Please provide the analysis in markdown, followed by a short greeting to the user as your persona.
+`;
+  };
 
   // src/webview/components/SurveyForm.tsx
   var SurveyForm = ({ character, onComplete }) => {
     const [phase, setPhase] = (0, import_react2.useState)("bfi");
     const [bfiResponses, setBfiResponses] = (0, import_react2.useState)({});
     const [pvqResponses, setPvqResponses] = (0, import_react2.useState)({});
+    const [analyzing, setAnalyzing] = (0, import_react2.useState)(false);
     const handleBfiChange = (questionId, value) => {
       setBfiResponses((prev) => ({ ...prev, [questionId]: value }));
     };
@@ -23702,20 +23805,27 @@
     const handleBfiSubmit = () => {
       if (Object.keys(bfiResponses).length === BFI_QUESTIONS.length) {
         setPhase("pvq");
+        window.scrollTo(0, 0);
       }
     };
-    const handlePvqSubmit = () => {
+    const handlePvqSubmit = async () => {
       if (Object.keys(pvqResponses).length === PVQ_QUESTIONS.length) {
+        setAnalyzing(true);
         const bfiScores = scoreBFI(bfiResponses);
         const pvqScores = scorePVQ(pvqResponses);
-        onComplete({
-          bfi: bfiScores,
-          pvq: pvqScores,
-          character
-        });
+        const analysisPrompt = generateCoDPrompt(bfiScores, pvqScores, character);
+        setTimeout(() => {
+          onComplete({
+            bfi: bfiScores,
+            pvq: pvqScores,
+            character,
+            analysis: analysisPrompt
+            // Passing the prompt to be used in Chat context
+          });
+        }, 1500);
       }
     };
-    const renderLikertScale = (questionId, responses, onChange) => /* @__PURE__ */ import_react2.default.createElement("div", { className: "likert-scale" }, [1, 2, 3, 4, 5].map((value) => /* @__PURE__ */ import_react2.default.createElement("label", { key: value, className: "likert-option" }, /* @__PURE__ */ import_react2.default.createElement(
+    const renderLikertScale = (questionId, responses, onChange, max) => /* @__PURE__ */ import_react2.default.createElement("div", { className: "likert-scale" }, Array.from({ length: max }, (_, i) => i + 1).map((value) => /* @__PURE__ */ import_react2.default.createElement("label", { key: value, className: "likert-option" }, /* @__PURE__ */ import_react2.default.createElement(
       "input",
       {
         type: "radio",
@@ -23725,25 +23835,28 @@
         onChange: () => onChange(questionId, value)
       }
     ), /* @__PURE__ */ import_react2.default.createElement("span", null, value))));
+    if (analyzing) {
+      return /* @__PURE__ */ import_react2.default.createElement("div", { className: "onboarding" }, /* @__PURE__ */ import_react2.default.createElement("h1", null, "Analyzing Personality..."), /* @__PURE__ */ import_react2.default.createElement("p", null, "Running CoD Pipeline..."), /* @__PURE__ */ import_react2.default.createElement("p", { className: "subtitle" }, "Identifying core traits..."));
+    }
     if (phase === "bfi") {
-      return /* @__PURE__ */ import_react2.default.createElement("div", { className: "survey-form" }, /* @__PURE__ */ import_react2.default.createElement("h2", null, "Personality Survey (Part 1/2)"), /* @__PURE__ */ import_react2.default.createElement("p", { className: "subtitle" }, "How well do these statements describe you?", /* @__PURE__ */ import_react2.default.createElement("br", null), "1 = Strongly Disagree, 5 = Strongly Agree"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "questions" }, BFI_QUESTIONS.map((q) => /* @__PURE__ */ import_react2.default.createElement("div", { key: q.id, className: "question" }, /* @__PURE__ */ import_react2.default.createElement("p", null, q.text), renderLikertScale(q.id, bfiResponses, handleBfiChange)))), /* @__PURE__ */ import_react2.default.createElement(
+      return /* @__PURE__ */ import_react2.default.createElement("div", { className: "survey-form" }, /* @__PURE__ */ import_react2.default.createElement("h2", null, "Personality Assessment (1/2)"), /* @__PURE__ */ import_react2.default.createElement("p", { className: "subtitle" }, "I am someone who...", /* @__PURE__ */ import_react2.default.createElement("br", null), "(1 = Disagree Strongly, 5 = Agree Strongly)"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "questions" }, BFI_QUESTIONS.map((q) => /* @__PURE__ */ import_react2.default.createElement("div", { key: q.id, className: "question" }, /* @__PURE__ */ import_react2.default.createElement("p", null, q.id, ". ", q.text), renderLikertScale(q.id, bfiResponses, handleBfiChange, 5)))), /* @__PURE__ */ import_react2.default.createElement(
         "button",
         {
           className: "submit-btn",
           onClick: handleBfiSubmit,
           disabled: Object.keys(bfiResponses).length !== BFI_QUESTIONS.length
         },
-        "Next \u2192"
+        "Next: Values Assessment \u2192"
       ));
     }
-    return /* @__PURE__ */ import_react2.default.createElement("div", { className: "survey-form" }, /* @__PURE__ */ import_react2.default.createElement("h2", null, "Values Survey (Part 2/2)"), /* @__PURE__ */ import_react2.default.createElement("p", { className: "subtitle" }, "How important are these values to you?", /* @__PURE__ */ import_react2.default.createElement("br", null), "1 = Not Important, 5 = Very Important"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "questions" }, PVQ_QUESTIONS.map((q) => /* @__PURE__ */ import_react2.default.createElement("div", { key: q.id, className: "question" }, /* @__PURE__ */ import_react2.default.createElement("p", null, q.text), renderLikertScale(q.id, pvqResponses, handlePvqChange)))), /* @__PURE__ */ import_react2.default.createElement(
+    return /* @__PURE__ */ import_react2.default.createElement("div", { className: "survey-form" }, /* @__PURE__ */ import_react2.default.createElement("h2", null, "Values Assessment (2/2)"), /* @__PURE__ */ import_react2.default.createElement("p", { className: "subtitle" }, "How much is this person like you?", /* @__PURE__ */ import_react2.default.createElement("br", null), "(1 = Not like me at all, 6 = Very much like me)"), /* @__PURE__ */ import_react2.default.createElement("div", { className: "questions" }, PVQ_QUESTIONS.map((q) => /* @__PURE__ */ import_react2.default.createElement("div", { key: q.id, className: "question" }, /* @__PURE__ */ import_react2.default.createElement("p", null, q.id, ". ", q.text), renderLikertScale(q.id, pvqResponses, handlePvqChange, 6)))), /* @__PURE__ */ import_react2.default.createElement(
       "button",
       {
         className: "submit-btn",
         onClick: handlePvqSubmit,
         disabled: Object.keys(pvqResponses).length !== PVQ_QUESTIONS.length
       },
-      "Complete & Start Chat"
+      "Complete & Generate Analysis"
     ));
   };
 
@@ -23754,11 +23867,12 @@
       {
         id: "1",
         author: "bot",
-        content: character === "aru" ? "Hmph! So you finally decided to show up? Well, I suppose I'll help you... but don't expect me to go easy on you!" : "Hello! I'm ready to help you debug your code. Let's analyze the problem systematically."
+        content: character === "aru" ? "Hmph! So you finally decided to show up? Well, I suppose I'll help you... but don't expect me to go easy on you! \u{1F4A2}" : "Hello! I'm ready to help you with your code. Let's analyze the problem systematically. \u{1F50D}"
       }
     ]);
     const [inputValue, setInputValue] = (0, import_react3.useState)("");
     const [isLoading, setIsLoading] = (0, import_react3.useState)(false);
+    const [streamingMessageId, setStreamingMessageId] = (0, import_react3.useState)(null);
     const messagesEndRef = (0, import_react3.useRef)(null);
     const scrollToBottom = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -23769,18 +23883,57 @@
     (0, import_react3.useEffect)(() => {
       const handleMessage = (event) => {
         const message = event.data;
-        if (message.type === "botMessage") {
-          setMessages((prev) => [...prev, {
-            id: Date.now().toString(),
-            author: "bot",
-            content: message.content
-          }]);
-          setIsLoading(false);
+        switch (message.type) {
+          case "botMessageStart":
+            setStreamingMessageId(message.id);
+            setMessages((prev) => [...prev, {
+              id: message.id,
+              author: "bot",
+              content: "",
+              isStreaming: true
+            }]);
+            break;
+          case "botMessageToken":
+            setMessages((prev) => prev.map(
+              (msg) => msg.id === streamingMessageId ? { ...msg, content: msg.content + message.token } : msg
+            ));
+            break;
+          case "botMessageComplete":
+            setMessages((prev) => prev.map(
+              (msg) => msg.id === streamingMessageId ? { ...msg, content: message.content, isStreaming: false } : msg
+            ));
+            setStreamingMessageId(null);
+            setIsLoading(false);
+            break;
+          case "botMessageError":
+            setMessages((prev) => {
+              if (streamingMessageId) {
+                return prev.map(
+                  (msg) => msg.id === streamingMessageId ? { ...msg, content: `\u274C Error: ${message.error}`, isStreaming: false } : msg
+                );
+              }
+              return [...prev, {
+                id: Date.now().toString(),
+                author: "bot",
+                content: `\u274C Error: ${message.error}`
+              }];
+            });
+            setStreamingMessageId(null);
+            setIsLoading(false);
+            break;
+          case "botMessage":
+            setMessages((prev) => [...prev, {
+              id: Date.now().toString(),
+              author: "bot",
+              content: message.content
+            }]);
+            setIsLoading(false);
+            break;
         }
       };
       window.addEventListener("message", handleMessage);
       return () => window.removeEventListener("message", handleMessage);
-    }, []);
+    }, [streamingMessageId]);
     const handleSend = () => {
       if (!inputValue.trim() || isLoading)
         return;
@@ -23810,14 +23963,15 @@
         alt: character,
         className: "avatar"
       }
-    ), /* @__PURE__ */ import_react3.default.createElement("span", { className: "name" }, character === "aru" ? "Aru" : "Chihiro")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "messages" }, messages.map((msg) => /* @__PURE__ */ import_react3.default.createElement("div", { key: msg.id, className: `message ${msg.author}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "bubble" }, msg.content))), isLoading && /* @__PURE__ */ import_react3.default.createElement("div", { className: "message bot" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "bubble typing" }, /* @__PURE__ */ import_react3.default.createElement("span", null, "."), /* @__PURE__ */ import_react3.default.createElement("span", null, "."), /* @__PURE__ */ import_react3.default.createElement("span", null, "."))), /* @__PURE__ */ import_react3.default.createElement("div", { ref: messagesEndRef })), /* @__PURE__ */ import_react3.default.createElement("div", { className: "input-area" }, /* @__PURE__ */ import_react3.default.createElement(
+    ), /* @__PURE__ */ import_react3.default.createElement("span", { className: "name" }, character === "aru" ? "Aru" : "Chihiro"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "status" }, isLoading ? "\u{1F4AD} Thinking..." : "\u{1F7E2} Online")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "messages" }, messages.map((msg) => /* @__PURE__ */ import_react3.default.createElement("div", { key: msg.id, className: `message ${msg.author}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: `bubble ${msg.isStreaming ? "streaming" : ""}` }, msg.content || msg.isStreaming && "..."))), isLoading && !streamingMessageId && /* @__PURE__ */ import_react3.default.createElement("div", { className: "message bot" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "bubble typing" }, /* @__PURE__ */ import_react3.default.createElement("span", null, "."), /* @__PURE__ */ import_react3.default.createElement("span", null, "."), /* @__PURE__ */ import_react3.default.createElement("span", null, "."))), /* @__PURE__ */ import_react3.default.createElement("div", { ref: messagesEndRef })), /* @__PURE__ */ import_react3.default.createElement("div", { className: "input-area" }, /* @__PURE__ */ import_react3.default.createElement(
       "textarea",
       {
         value: inputValue,
         onChange: (e) => setInputValue(e.target.value),
         onKeyPress: handleKeyPress,
         placeholder: "Type your message...",
-        rows: 1
+        rows: 1,
+        disabled: isLoading
       }
     ), /* @__PURE__ */ import_react3.default.createElement("button", { onClick: handleSend, disabled: isLoading || !inputValue.trim() }, "Send")));
   };
@@ -23851,7 +24005,7 @@
 
   // src/webview/App.tsx
   var App = () => {
-    const [step, setStep] = (0, import_react5.useState)("character");
+    const [step, setStep] = (0, import_react5.useState)("loading");
     const [character, setCharacter] = (0, import_react5.useState)();
     const [profile, setProfile] = (0, import_react5.useState)();
     const [showOverlay, setShowOverlay] = (0, import_react5.useState)(false);
@@ -23859,15 +24013,36 @@
     (0, import_react5.useEffect)(() => {
       const handleMessage = (event) => {
         const message = event.data;
-        if (message.type === "showOverlay") {
-          setOverlayProblemId(message.problemId);
-          setShowOverlay(true);
-          setTimeout(() => {
-            setShowOverlay(false);
-          }, 3e3);
+        switch (message.type) {
+          case "initialState":
+            if (message.data.hasProfile && message.data.profile) {
+              const savedProfile = message.data.profile;
+              setCharacter(savedProfile.character);
+              setProfile({
+                bfi: savedProfile.bfi,
+                pvq: savedProfile.pvq,
+                character: savedProfile.character,
+                analysis: savedProfile.personalitySummary
+              });
+              setStep("chat");
+            } else {
+              setStep("character");
+            }
+            break;
+          case "showOverlay":
+            setOverlayProblemId(message.problemId);
+            setShowOverlay(true);
+            setTimeout(() => {
+              setShowOverlay(false);
+            }, 3e3);
+            break;
+          case "profileSaved":
+            console.log("[App] Profile saved successfully");
+            break;
         }
       };
       window.addEventListener("message", handleMessage);
+      window.vscode.postMessage({ type: "ready" });
       return () => window.removeEventListener("message", handleMessage);
     }, []);
     const handleCharacterSelect = (selected) => {
@@ -23876,8 +24051,15 @@
     };
     const handleSurveyComplete = (userProfile) => {
       setProfile(userProfile);
+      window.vscode.postMessage({
+        type: "saveProfile",
+        data: userProfile
+      });
       setStep("chat");
     };
+    if (step === "loading") {
+      return /* @__PURE__ */ import_react5.default.createElement("div", { className: "app loading" }, /* @__PURE__ */ import_react5.default.createElement("div", { className: "loading-spinner" }, "Loading..."));
+    }
     return /* @__PURE__ */ import_react5.default.createElement("div", { className: "app" }, showOverlay && character && /* @__PURE__ */ import_react5.default.createElement(
       Overlay,
       {
