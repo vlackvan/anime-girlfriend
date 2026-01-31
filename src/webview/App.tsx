@@ -58,6 +58,12 @@ export const App: React.FC = () => {
                     }, 3000);
                     break;
 
+                case 'command':
+                    if (message.command === 'goToStep') {
+                        setStep(message.data as AppStep);
+                    }
+                    break;
+
                 case 'profileSaved':
                     console.log('[App] Profile saved successfully');
                     break;

@@ -146,6 +146,13 @@ var ChatPanel = class {
       problemId
     });
   }
+  sendCommand(command, data) {
+    this.postMessage({
+      type: "command",
+      command,
+      data
+    });
+  }
   postMessage(message) {
     this.view?.webview.postMessage(message);
   }
@@ -672,7 +679,12 @@ async function activate(context) {
       await userDataStore.clearProfile();
       chatGPTService.setUserProfile(void 0);
       chatGPTService.clearHistory();
-      vscode5.window.showInformationMessage("Profile cleared. Restart the chat to re-onboard.");
+      chatPanel.sendCommand("goToStep", "character");
+      vscode5.window.showInformationMessage("Profile cleared. Starting fresh onboarding.");
+    }),
+    vscode5.commands.registerCommand("anime-girlfriend.retakeSurvey", async () => {
+      chatPanel.sendCommand("goToStep", "survey");
+      vscode5.window.showInformationMessage("Retaking personality survey...");
     })
   );
   context.subscriptions.push({

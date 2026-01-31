@@ -24036,6 +24036,11 @@ Please provide the analysis in markdown, followed by a short greeting to the use
               setShowOverlay(false);
             }, 3e3);
             break;
+          case "command":
+            if (message.command === "goToStep") {
+              setStep(message.data);
+            }
+            break;
           case "profileSaved":
             console.log("[App] Profile saved successfully");
             break;

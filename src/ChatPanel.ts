@@ -147,6 +147,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         });
     }
 
+    sendCommand(command: string, data?: any) {
+        this.postMessage({
+            type: 'command',
+            command: command,
+            data: data
+        });
+    }
+
     private postMessage(message: any) {
         this.view?.webview.postMessage(message);
     }

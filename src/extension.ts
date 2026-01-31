@@ -57,7 +57,12 @@ export async function activate(context: vscode.ExtensionContext) {
             await userDataStore.clearProfile();
             chatGPTService.setUserProfile(undefined);
             chatGPTService.clearHistory();
-            vscode.window.showInformationMessage('Profile cleared. Restart the chat to re-onboard.');
+            chatPanel.sendCommand('goToStep', 'character');
+            vscode.window.showInformationMessage('Profile cleared. Starting fresh onboarding.');
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.retakeSurvey', async () => {
+            chatPanel.sendCommand('goToStep', 'survey');
+            vscode.window.showInformationMessage('Retaking personality survey...');
         })
     );
 
