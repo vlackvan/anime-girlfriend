@@ -1,27 +1,11 @@
 // Character types
 export type Character = 'aru' | 'chihiro';
 
-// BFI-2-S (Big Five Inventory - Short)
-export interface BFIScores {
-    extraversion: number;      // 1-5
-    agreeableness: number;     // 1-5
-    conscientiousness: number; // 1-5
-    neuroticism: number;       // 1-5 (Negative Emotionality)
-    openness: number;          // 1-5 (Open-Mindedness)
-}
-
-// PVQ (Portrait Values Questionnaire) Full 10 Values
-export interface PVQScores {
-    universalism: number;
-    benevolence: number;
-    tradition: number;
-    conformity: number;
-    security: number;
-    power: number;
-    achievement: number;
-    hedonism: number;
-    stimulation: number;
-    selfDirection: number;
+// User Essays for Implicit Personality Extraction
+export interface UserEssays {
+    routine: string;  // Routine (C) -> Habits
+    struggle: string; // Struggle (P via C) -> Neuroticism/Regulation
+    goal: string;     // Goal (S) -> Values/Ambition
 }
 
 // Demographics
@@ -33,12 +17,20 @@ export interface Demographics {
 }
 
 // Combined user profile
+export interface CoreMemories {
+    selfIntro: string;
+    futureVision: string;
+    stressStrategy: string;
+    happiness: string;
+}
+
 export interface UserProfile {
-    bfi: BFIScores;
-    pvq: PVQScores;
+    essays: UserEssays;
     character: Character;
     demographics?: Demographics;
-    analysis?: string; // CoD Pipeline Analysis
+    analysis?: string; // AI-generated personality analysis
+    coreMemories?: CoreMemories; // New field
+    solvedAcData?: any; // Solved.ac data for referenced in chat
     isFirstMeeting?: boolean; // Flag for initial greeting after onboarding
 }
 

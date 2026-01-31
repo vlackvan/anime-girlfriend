@@ -13,26 +13,18 @@ export interface Demographics {
 export interface StoredUserProfile {
     character: 'aru' | 'chihiro';
     demographics?: Demographics;
-    bfi: {
-        extraversion: number;
-        agreeableness: number;
-        conscientiousness: number;
-        neuroticism: number;
-        openness: number;
+    essays: {
+        routine: string;
+        struggle: string;
+        goal: string;
     };
-    pvq: {
-        universalism: number;
-        benevolence: number;
-        tradition: number;
-        conformity: number;
-        security: number;
-        power: number;
-        achievement: number;
-        hedonism: number;
-        stimulation: number;
-        selfDirection: number;
+    analysis?: string; // AI-generated personality analysis (from CoD + OpenAI)
+    coreMemories?: {
+        selfIntro: string;
+        futureVision: string;
+        stressStrategy: string;
+        happiness: string;
     };
-    personalitySummary?: string; // AI-generated personality analysis (from CoD + OpenAI)
     solvedAcData?: SolvedAcStats | SolvedAcManualInput; // Problem-solving context
     createdAt: string;
     updatedAt: string;
@@ -67,7 +59,7 @@ export class UserDataStore {
     async saveProfile(profile: Omit<StoredUserProfile, 'createdAt' | 'updatedAt'>): Promise<void> {
         const now = new Date().toISOString();
         const existing = this.loadProfile();
-        
+
         const storedProfile: StoredUserProfile = {
             ...profile,
             createdAt: existing?.createdAt || now,
@@ -84,7 +76,7 @@ export class UserDataStore {
     async updatePersonalitySummary(summary: string): Promise<void> {
         const profile = this.loadProfile();
         if (profile) {
-            profile.personalitySummary = summary;
+            profile.analysis = summary;
             profile.updatedAt = new Date().toISOString();
             await this.globalState.update(PROFILE_KEY, profile);
             console.log('[UserDataStore] Personality summary updated');

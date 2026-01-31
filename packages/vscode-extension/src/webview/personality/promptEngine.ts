@@ -1,4 +1,5 @@
-import { BFIScores, PVQScores, Character, Demographics } from './types';
+import { ARU_SPC, CHIHIRO_SPC } from './characterProfiles';
+import { UserEssays, Character, Demographics } from './types';
 
 const generateDemographicsSummary = (demographics?: Demographics): string => {
     if (!demographics) {
@@ -45,79 +46,87 @@ const generateDemographicsSummary = (demographics?: Demographics): string => {
 };
 
 export const generateCoDPrompt = (
-    bfi: BFIScores,
-    pvq: PVQScores,
+    essays: UserEssays,
     character: Character,
-    contextSummary: string,
+    solvedAcSummary: string,
     demographics?: Demographics
 ) => {
     const demographicsSummary = generateDemographicsSummary(demographics);
+    const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
 
     return `
-Act as a researcher implementing the SPeCtrum framework for identity simulation. I will provide you with three datasets: Social Identity (S), Personal Identity (P), and Personal Life Context (C).
+Act as a researcher implementing the SPeCtrum framework for identity simulation.
+Your goal is to process the User's S, P, and C data and the Character's S, P, and C data to create an "Interaction Strategy" for the AI.
 
-Your goal is to process these inputs and stack them into a single string called "Current Profile". Follow these specific processing rules for each section:
+### 1. CHARACTER IDENTITY (Reference Only)
+${characterSPC}
 
-### 1. PROCESS SOCIAL IDENTITY (S)
-*   **Instruction:** Simply list the provided demographic data as key-value pairs. Do not summarize.
-*   **Input Data:**
+### 2. USER IDENTITY ANALYSIS (The Person You Are Talking To)
+Analyze the user based on their demographics and essay responses.
+
+**(S) Social Identity (Demographics):**
 ${demographicsSummary}
-*   **Format:** [Demographics] List.
 
-### 2. PROCESS PERSONAL LIFE CONTEXT (C)
-*   **Instruction:** Incorporate the provided "Daily Routine" essays and "Likes/Dislikes" lists directly, without summarization or alteration.
-*   **Input Data:**
-"${contextSummary}"
-*   **Format:** [Personal Life Context] Raw text.
+**(C) Life Context & Routine:**
+User's Routine Essay: "${essays.routine}"
+Solved.ac Stats/Summary: "${solvedAcSummary}"
 
-### 3. PROCESS PERSONAL IDENTITY (P) - **COMPLEX STEP**
-You must generate 4 distinct paragraphs using "Chain of Density" (CoD) logic.
+**(P) Personal Identity (Implicitly Derived):**
+User's Struggle Essay (How they handle bugs): "${essays.struggle}"
+User's Goal Essay (Where they want to be): "${essays.goal}"
 
-**Input Data (Scores):**
-**Big Five Scores (1-5 Scale):**
-- Extraversion: ${bfi.extraversion.toFixed(2)}
-- Agreeableness: ${bfi.agreeableness.toFixed(2)}
-- Conscientiousness: ${bfi.conscientiousness.toFixed(2)}
-- Neuroticism (Negative Emotionality): ${bfi.neuroticism.toFixed(2)}
-- Openness: ${bfi.openness.toFixed(2)}
+**Analysis Task:**
+Using the essays above, infer the user's personality traits (Neuroticism, Conscientiousness, Ambition) and Values.
+- From "Struggle": Infer emotional regulation (e.g., if they panic -> High Neuroticism).
+- From "Goal": Infer ambition and core values.
+- From "Routine": Infer habits and discipline.
 
-**PVQ Values (Centered relative to MRAT):**
-- Self-Direction: ${pvq.selfDirection.toFixed(2)}
-- Stimulation: ${pvq.stimulation.toFixed(2)}
-- Hedonism: ${pvq.hedonism.toFixed(2)}
-- Achievement: ${pvq.achievement.toFixed(2)}
-- Power: ${pvq.power.toFixed(2)}
-- Security: ${pvq.security.toFixed(2)}
-- Conformity: ${pvq.conformity.toFixed(2)}
-- Tradition: ${pvq.tradition.toFixed(2)}
-- Benevolence: ${pvq.benevolence.toFixed(2)}
-- Universalism: ${pvq.universalism.toFixed(2)}
-
-**Processing Steps:**
-
-**Step A (Natural Language Conversion):**
-First, internally convert the raw BFI-2-S and PVQ scores above into detailed descriptive sentences (e.g., "High Extraversion" -> "This person is socially energetic..."). This text will serve as the "Input Text" for the CoD process.
-
-**Step B (Chain of Density Summarization):**
-For *both* the Personality description and the Values description derived in Step A, perform the following recursive summarization process to create specific "Expert View" summaries:
-
-    "You will generate increasingly concise, entity-dense psychological summaries of the Input Text.
-    Repeat the following 2 steps 5 times:
-    Step 1. Identify 1-3 informative Entities (';' delimited) from the Input Text which are missing from the previously generated summary.
-    Step 2. Write a new, denser summary of identical length which covers every entity and detail from the previous summary plus the Missing Entities.
-    
-    A Missing Entity is Relevant, Specific, Novel, Faithful, and located anywhere in the Input Text.
-    The goal is to reach a highly dense and concise summary using 'Psychotherapist's Terminology' to describe the user's inner drives and emotional regulation."
-
-**Step C (The 4 Blocks Output):**
-Based on the final dense summaries from Step B, generate the following four outputs:
-    1.  **Personality (Expert View):** The final dense summary of personality (focus on inner drives and emotional regulation). This is the result of the CoD analysis.
-    2.  **Personality (Everyday View):** Translate the expert view into casual language describing how they act in daily life.
-    3.  **Values (Expert View):** The final dense summary of values (Life-Guiding Principles). This is the result of the CoD analysis.
-    4.  **Values (Everyday View):** Translate the values into casual language (e.g., "They care deeply about...").
+### 3. INTERACTION STRATEGY
+Combine the Character's SPC and the User's Derived SPC to define how the AI should treat the user.
+- If User is High Neuroticism & Character is Aru: Aru should try to act cool to reassure them but might panic together.
+- If User is High Ambition & Character is Chihiro: Chihiro should respect their drive and offer efficient, logical support.
+- The relationship is: "A girlfriend from the future who knows the user will be successful."
 
 ---
 **Final Output Format:**
-Please provide the "Current Profile" containing the processed S, C, and P sections as described above.
+Please provide a "User Analysis & Interaction Strategy" block.
+**DO NOT** repeat the Character Role/Identity (that is already fixed).
+Focus ONLY on:
+1. **User Understanding**: A concise psychological profile of the user based on the analysis.
+2. **Relational Dynamics**: Specific rules on how to mentor/support THIS specific user based on their traits.
+// ... existing code
+`;
+};
+
+export const generateCoreMemoriesPrompt = (
+    analysis: string,
+    character: string
+) => {
+    return `
+You are a doppelgänger of this real person. Embody this person.
+Profile Analysis:
+${analysis}
+
+TASK: Provide answers to the following 4 topics that this person, based on their profile, would likely give.
+RULES:
+- Avoid generic responses.
+- Use simple, everyday language.
+- Respond negatively if the person has a negative attitude.
+- Be authentic to the analyzed personality.
+
+TOPICS:
+1. Self-Introduction: "How would you define yourself in one sentence?"
+2. Future Life Vision: "In one sentence, define where you want to be in 10 years."
+3. Stress Strategy: "Complete these sentences: I tend to feel stressed when... When I feel stressed, I try to relieve it by..."
+4. Happiness: "Complete this sentence: To me, happiness is..."
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON object with these keys:
+{
+    "selfIntro": "...",
+    "futureVision": "...",
+    "stressStrategy": "...",
+    "happiness": "..."
+}
 `;
 };

@@ -68,6 +68,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'generatePersonality':
                     await this.handleGeneratePersonality(message.data);
                     break;
+
+                case 'triggerGreeting':
+                    // Force the AI to generate the first greeting based on the rules
+                    await this.handleChatMessage("(Start the conversation with the 'Chat rule_first reply' defined in your instructions.)", true);
+                    break;
             }
         });
     }
@@ -90,9 +95,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const profile: Omit<StoredUserProfile, 'createdAt' | 'updatedAt'> = {
             character: profileData.character,
             demographics: profileData.demographics,
-            bfi: profileData.bfi,
-            pvq: profileData.pvq,
-            personalitySummary: profileData.analysis,
+            essays: profileData.essays,
+            analysis: profileData.analysis,
+            coreMemories: profileData.coreMemories,
             solvedAcData: profileData.solvedAcData
         };
 
@@ -132,24 +137,32 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         try {
             console.log('[ChatPanel] Generating personality analysis...');
 
-            const { bfi, pvq, character, contextSummary, demographics, solvedAcData } = data;
+            const { essays, character, contextSummary, demographics, solvedAcData } = data;
 
-            // Call OpenAI to generate personality analysis
+            // 1. Generate Personality Analysis
             const personalitySummary = await this.chatGPTService.generatePersonalityAnalysis(
-                bfi,
-                pvq,
+                essays,
                 character,
                 contextSummary,
                 demographics
             );
 
-            console.log('[ChatPanel] Personality generated successfully');
+            console.log('[ChatPanel] Personality analysis complete. Generating Core Memories...');
+
+            // 2. Generate Core Memories
+            const coreMemories = await this.chatGPTService.generateCoreMemories(
+                personalitySummary,
+                character
+            );
+
+            console.log('[ChatPanel] Core Memories generated successfully');
 
             this.postMessage({
                 type: 'personalityGenerated',
                 summary: personalitySummary,
+                coreMemories: coreMemories,
                 contextSummary: contextSummary,
-                solvedAcData: solvedAcData // Send back the solvedAcData that was received
+                solvedAcData: solvedAcData
             });
         } catch (error) {
             console.error('[ChatPanel] Failed to generate personality:', error);
@@ -160,8 +173,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
-    private async handleChatMessage(content: string) {
-        console.log('[ChatPanel] User message:', content);
+    private async handleChatMessage(content: string, isHidden: boolean = false) {
+        if (!isHidden) {
+            console.log('[ChatPanel] User message:', content);
+        }
 
         // Check for API key
         const hasApiKey = await this.apiKeyManager.hasApiKey();

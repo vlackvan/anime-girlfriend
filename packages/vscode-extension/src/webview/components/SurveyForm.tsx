@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import { Character, UserProfile, Demographics } from '../personality/types';
-import { BFI_QUESTIONS, PVQ_QUESTIONS } from '../personality/questions';
-import { scoreBFI, scorePVQ } from '../personality/scoring';
-import { generateCoDPrompt } from '../personality/promptEngine';
+import { Character, UserProfile, Demographics, UserEssays } from '../personality/types';
 
 interface SurveyFormProps {
     character: Character;
@@ -26,9 +23,13 @@ const ALGORITHM_TAGS = [
 ];
 
 export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics, onComplete }) => {
-    const [phase, setPhase] = useState<'bfi' | 'pvq' | 'solvedac'>('bfi');
-    const [bfiResponses, setBfiResponses] = useState<Record<number, number>>({});
-    const [pvqResponses, setPvqResponses] = useState<Record<number, number>>({});
+    // Phases: essay -> solvedac
+    const [phase, setPhase] = useState<'essay' | 'solvedac'>('essay');
+    const [essays, setEssays] = useState<UserEssays>({
+        routine: '',
+        struggle: '',
+        goal: ''
+    });
     const [analyzing, setAnalyzing] = useState(false);
 
     // Solved.ac phase state
@@ -41,28 +42,16 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
     const [manualWeak, setManualWeak] = useState<string[]>([]);
     const [solvedacData, setSolvedacData] = useState<any>(null);
 
-    const handleBfiChange = (questionId: number, value: number) => {
-        setBfiResponses(prev => ({ ...prev, [questionId]: value }));
+    const handleEssayChange = (field: keyof UserEssays, value: string) => {
+        setEssays(prev => ({ ...prev, [field]: value }));
     };
 
-    const handlePvqChange = (questionId: number, value: number) => {
-        setPvqResponses(prev => ({ ...prev, [questionId]: value }));
-    };
-
-    const handleBfiSubmit = () => {
-        if (Object.keys(bfiResponses).length === BFI_QUESTIONS.length) {
-            setPhase('pvq');
-            // Scroll to top for the next survey phase
-            setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 0);
-        }
-    };
-
-    const handlePvqSubmit = async () => {
-        if (Object.keys(pvqResponses).length === PVQ_QUESTIONS.length) {
+    const handleEssaySubmit = () => {
+        if (essays.routine.trim() && essays.struggle.trim() && essays.goal.trim()) {
             setPhase('solvedac');
             window.scrollTo(0, 0);
+        } else {
+            alert('모든 질문에 답변해주세요.');
         }
     };
 
@@ -81,8 +70,6 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                 type: 'fetchSolvedacStats',
                 handle: bojHandle.trim()
             });
-
-            // Extension will respond with 'solvedacStatsFetched' message
         } catch (error) {
             setFetchError('통계를 가져오는데 실패했습니다.');
             setFetchingStats(false);
@@ -91,12 +78,11 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
 
     const handleSkipSolvedac = () => {
         const skipData = null; // Explicitly no data
-        setSolvedacData(skipData); // Set state so it's saved in profile
+        setSolvedacData(skipData);
         proceedToAnalysis(skipData, '알고리즘 문제 해결 경험 정보 없음.');
     };
 
     const handleManualSubmit = () => {
-        // Generate fallback summary
         const summary = generateManualSummary(manualProblemCount, manualProficient, manualWeak);
         const data = {
             problemCount: manualProblemCount,
@@ -104,7 +90,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
             weakAreas: manualWeak,
             summary
         };
-        setSolvedacData(data); // Set state so it's saved in profile
+        setSolvedacData(data);
         proceedToAnalysis(data, summary);
     };
 
@@ -130,15 +116,12 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
 
     const proceedToAnalysis = (data: any, contextSummary: string) => {
         setAnalyzing(true);
-        const bfiScores = scoreBFI(bfiResponses);
-        const pvqScores = scorePVQ(pvqResponses);
 
         // Send to extension for AI personality generation
         (window as any).vscode.postMessage({
             type: 'generatePersonality',
             data: {
-                bfi: bfiScores,
-                pvq: pvqScores,
+                essays, // Send the essays
                 character,
                 demographics,
                 solvedAcData: data,
@@ -151,33 +134,34 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
     React.useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
-
             if (message.type === 'solvedacStatsFetched') {
                 setFetchingStats(false);
-                if (message.error) {
-                    setFetchError(message.error);
-                } else {
+                if (message.data) {
                     setSolvedacData(message.data);
-                    proceedToAnalysis(message.data, message.data.summary);
+                    setSolvedacMode('connect');
+                } else if (message.error) {
+                    setFetchError(message.error);
                 }
             } else if (message.type === 'personalityGenerated') {
+                setAnalyzing(false);
                 onComplete({
-                    bfi: scoreBFI(bfiResponses),
-                    pvq: scorePVQ(pvqResponses),
                     character,
+                    demographics,
+                    essays,
                     analysis: message.summary,
-                    solvedAcData: message.solvedAcData, // Use the data sent back from extension
+                    coreMemories: message.coreMemories,
+                    solvedAcData: message.solvedAcData,
                     contextSummary: message.contextSummary || ''
                 });
             } else if (message.type === 'personalityGenerationError') {
                 setAnalyzing(false);
-                setFetchError(message.error || '성격 분석 생성에 실패했습니다.');
+                alert(message.error);
             }
         };
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [solvedacData, bfiResponses, pvqResponses, character, onComplete]);
+    }, [solvedacData, essays, character, onComplete]);
 
     const toggleManualTag = (tag: string, list: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
         if (list.includes(tag)) {
@@ -187,43 +171,76 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
         }
     };
 
-    const renderLikertScale = (
-        questionId: number,
-        responses: Record<number, number>,
-        onChange: (id: number, value: number) => void,
-        max: number
-    ) => (
-        <div className="likert-scale">
-            {Array.from({ length: max }, (_, i) => i + 1).map(value => (
-                <label key={value} className="likert-option">
-                    <input
-                        type="radio"
-                        name={`q-${questionId}`}
-                        value={value}
-                        checked={responses[questionId] === value}
-                        onChange={() => onChange(questionId, value)}
-                    />
-                    <span>{value}</span>
-                </label>
-            ))}
-        </div>
-    );
-
     if (analyzing) {
         return (
             <div className="onboarding">
                 <h1>성격 프로필 생성 중...</h1>
                 <p>AI가 당신의 성격을 분석하고 있습니다...</p>
-                <p className="subtitle">CoD 파이프라인 실행 중 (약 10-15초 소요)</p>
+                <p className="subtitle">SPeCtrum 프레임워크 분석 중 (약 10-15초 소요)</p>
             </div>
         );
     }
 
+    if (phase === 'essay') {
+        return (
+            <div className="survey-form">
+                <h2>당신에 대해 알려주세요 (1/2)</h2>
+                <p className="subtitle">
+                    더 나은 코칭을 위해 당신의 평소 습관과 생각을 솔직하게 적어주세요.
+                </p>
+
+                <div className="essay-questions">
+                    <div className="form-group">
+                        <label>1. [Context] 평소 코딩 루틴은 어떤가요?</label>
+                        <p className="hint">예: "주로 밤늦게까지 3시간씩 몰입한다", "주말에 몰아서 한다", "중간중간 자주 쉰다"</p>
+                        <textarea
+                            value={essays.routine}
+                            onChange={(e) => handleEssayChange('routine', e.target.value)}
+                            rows={3}
+                            placeholder="당신의 코딩 습관을 적어주세요..."
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label>2. [Struggle] 해결되지 않는 버그를 만났을 때 어떻게 반응하나요?</label>
+                        <p className="hint">예: "화가 나서 키보드를 친다", "잠시 산책을 다녀온다", "오기가 생겨서 끝까지 파고든다"</p>
+                        <textarea
+                            value={essays.struggle}
+                            onChange={(e) => handleEssayChange('struggle', e.target.value)}
+                            rows={3}
+                            placeholder="스트레스 상황에서의 반응을 적어주세요..."
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label>3. [Goal] 3년 뒤 당신은 어떤 모습이고 싶나요?</label>
+                        <p className="hint">예: "실리콘밸리 개발자", "나만의 서비스를 운영하는 창업가", "워라밸을 즐기는 시니어"</p>
+                        <textarea
+                            value={essays.goal}
+                            onChange={(e) => handleEssayChange('goal', e.target.value)}
+                            rows={3}
+                            placeholder="당신의 목표를 적어주세요..."
+                        />
+                    </div>
+                </div>
+
+                <button
+                    className="submit-btn"
+                    onClick={handleEssaySubmit}
+                    disabled={!essays.routine.trim() || !essays.struggle.trim() || !essays.goal.trim()}
+                >
+                    다음: 알고리즘 실력 연동 →
+                </button>
+            </div>
+        );
+    }
+
+    // Solved.ac Phase (Largely unchanged structure, just logic flow connected from Essay)
     if (phase === 'solvedac') {
         if (solvedacMode === 'choice') {
             return (
                 <div className="survey-form">
-                    <h2>알고리즘 실력 연동 (3/3)</h2>
+                    <h2>알고리즘 실력 연동 (2/2)</h2>
                     <p className="subtitle">
                         백준 온라인 저지 경험을 연결하면 더 정확한 성격 분석이 가능합니다.
                     </p>
@@ -379,59 +396,5 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
         }
     }
 
-    if (phase === 'bfi') {
-        return (
-            <div className="survey-form">
-                <h2>성격 유형 검사 (1/2)</h2>
-                <p className="subtitle">
-                    나는...<br />
-                    (1 = 전혀 그렇지 않다, 5 = 매우 그렇다)
-                </p>
-
-                <div className="questions">
-                    {BFI_QUESTIONS.map((q) => (
-                        <div key={q.id} className="question">
-                            <p>{q.id}. {q.text}</p>
-                            {renderLikertScale(q.id, bfiResponses, handleBfiChange, 5)}
-                        </div>
-                    ))}
-                </div>
-
-                <button
-                    className="submit-btn"
-                    onClick={handleBfiSubmit}
-                    disabled={Object.keys(bfiResponses).length !== BFI_QUESTIONS.length}
-                >
-                    다음: 가치관 검사 →
-                </button>
-            </div>
-        );
-    }
-
-    return (
-        <div className="survey-form">
-            <h2>가치관 검사 (2/2)</h2>
-            <p className="subtitle">
-                이 사람은 당신과 얼마나 비슷한가요?<br />
-                (1 = 전혀 그렇지 않다, 6 = 매우 그렇다)
-            </p>
-
-            <div className="questions">
-                {PVQ_QUESTIONS.map((q) => (
-                    <div key={q.id} className="question">
-                        <p>{q.id}. {q.text}</p>
-                        {renderLikertScale(q.id, pvqResponses, handlePvqChange, 6)}
-                    </div>
-                ))}
-            </div>
-
-            <button
-                className="submit-btn"
-                onClick={handlePvqSubmit}
-                disabled={Object.keys(pvqResponses).length !== PVQ_QUESTIONS.length}
-            >
-                완료 및 분석 생성
-            </button>
-        </div>
-    );
+    return null;
 };
