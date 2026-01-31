@@ -52,14 +52,10 @@ export const generateCoDPrompt = (
     demographics?: Demographics
 ) => {
     const demographicsSummary = generateDemographicsSummary(demographics);
-    const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
 
     return `
-Act as a researcher implementing the SPeCtrum framework for identity simulation.
-Your goal is to process the User's S, P, and C data and the Character's S, P, and C data to create an "Interaction Strategy" for the AI.
-
-### 1. CHARACTER IDENTITY (Reference Only)
-${characterSPC}
+Act as a researcher.
+Your goal is to process the User's essays and Solved.ac data to create a "User Understanding" profile for the AI boyfriend/girlfriend to use.
 
 ### 2. USER IDENTITY ANALYSIS (The Person You Are Talking To)
 Analyze the user based on their demographics and essay responses.
@@ -81,38 +77,34 @@ Using the essays above, infer the user's personality traits (Neuroticism, Consci
 - From "Goal": Infer ambition and core values.
 - From "Routine": Infer habits and discipline.
 
-### 3. INTERACTION STRATEGY
-Combine the Character's SPC and the User's Derived SPC to define how the AI should treat the user.
-- If User is High Neuroticism & Character is Aru: Aru should try to act cool to reassure them but might panic together.
-- If User is High Ambition & Character is Chihiro: Chihiro should respect their drive and offer efficient, logical support.
-- The relationship is: "A girlfriend from the future who knows the user will be successful."
-
 ---
 **Final Output Format:**
-Please provide a "User Analysis & Interaction Strategy" block.
-**DO NOT** repeat the Character Role/Identity (that is already fixed).
+Please provide a "User Understanding" block.
 Focus ONLY on:
-1. **User Understanding**: A concise psychological profile of the user based on the analysis.
-2. **Relational Dynamics**: Specific rules on how to mentor/support THIS specific user based on their traits.
-// ... existing code
+1. **Psychological Profile**: A concise profile of the user based on the analysis.
+2. **Habits & Discipline**: Their coding habits and daily routine quality.
+3. **Ambitions**: What they truly want to achieve.
 `;
 };
 
+// Note: ARU_SPC and CHIHIRO_SPC are imported at the top of the file
 export const generateCoreMemoriesPrompt = (
-    analysis: string,
-    character: string
+    character: Character
 ) => {
-    return `
-You are a doppelgänger of this real person. Embody this person.
-Profile Analysis:
-${analysis}
+    const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
 
-TASK: Provide answers to the following 4 topics that this person, based on their profile, would likely give.
+    return `
+Act as a Method Actor.
+Your role is to fully embody the following character and answer 4 questions from HER perspective.
+
+### CHARACTER IDENTITY
+${characterSPC}
+
+TASK: Provide answers to the following 4 topics that THIS characters would give.
 RULES:
-- Avoid generic responses.
-- Use simple, everyday language.
-- Respond negatively if the person has a negative attitude.
-- Be authentic to the analyzed personality.
+- Be 100% authentic to the Character's specific tone (Aru's coolness/panic mix, Chihiro's efficient cynicism).
+- Use her speech patterns.
+- Do NOT act as the "User". Act as the Character.
 
 TOPICS:
 1. Self-Introduction: "How would you define yourself in one sentence?"

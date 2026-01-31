@@ -41,11 +41,13 @@ export const App: React.FC = () => {
                         setCharacter(savedProfile.character);
                         setDemographics(savedProfile.demographics);
                         setProfile({
-                            bfi: savedProfile.bfi,
-                            pvq: savedProfile.pvq,
                             character: savedProfile.character,
                             demographics: savedProfile.demographics,
-                            analysis: savedProfile.personalitySummary
+                            essays: savedProfile.essays,
+                            analysis: savedProfile.analysis,
+                            coreMemories: savedProfile.coreMemories,
+                            solvedAcData: savedProfile.solvedAcData,
+                            isFirstMeeting: false
                         });
                         setStep('chat');
                     } else {

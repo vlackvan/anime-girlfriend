@@ -24,6 +24,27 @@ export interface CoreMemories {
     happiness: string;
 }
 
+export interface BFIScores {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
+}
+
+export interface PVQScores {
+    selfDirection: number;
+    power: number;
+    universalism: number;
+    achievement: number;
+    security: number;
+    stimulation: number;
+    conformity: number;
+    tradition: number;
+    hedonism: number;
+    benevolence: number;
+}
+
 export interface UserProfile {
     essays: UserEssays;
     character: Character;
@@ -32,6 +53,8 @@ export interface UserProfile {
     coreMemories?: CoreMemories; // New field
     solvedAcData?: any; // Solved.ac data for referenced in chat
     isFirstMeeting?: boolean; // Flag for initial greeting after onboarding
+    bfi?: BFIScores;
+    pvq?: PVQScores;
 }
 
 // Survey question structure
