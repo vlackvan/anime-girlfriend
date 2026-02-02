@@ -52,7 +52,10 @@ export class ChatGPTService {
     /**
      * Send a message and stream the response
      */
-    async sendMessage(userMessage: string, callbacks: StreamCallbacks): Promise<void> {
+    /**
+     * Send a message and stream the response
+     */
+    async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
             callbacks.onError(new Error('No API key configured. Please enter your OpenAI API key.'));
@@ -69,13 +72,35 @@ export class ChatGPTService {
         });
 
         // Build messages array
-        const messages: ChatMessage[] = [
+        // If images are present, we need to format the last user message as content array
+        // Note: History is stored as simple strings usually, but for Vision we need object content for the current turn.
+        // For simplicity, we just format the current request payload correctly.
+
+        const messagesToSend: any[] = [
             { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-20) // Keep last 20 messages for context
+            ...this.conversationHistory.slice(-20, -1), // Previous history
         ];
+
+        // Add current message with potential images
+        if (images && images.length > 0) {
+            const contentParts: any[] = [{ type: 'text', text: userMessage }];
+            for (const img of images) {
+                contentParts.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: img
+                    }
+                });
+            }
+            messagesToSend.push({ role: 'user', content: contentParts });
+        } else {
+            messagesToSend.push({ role: 'user', content: userMessage });
+        }
 
         try {
             const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+            // If images are used, force gpt-4o or gpt-4o-mini which supports vision
+            const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
 
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -84,8 +109,8 @@ export class ChatGPTService {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model,
-                    messages,
+                    model: effectiveModel,
+                    messages: messagesToSend,
                     stream: true,
                     temperature: 0.7,
                     max_tokens: 2000
@@ -142,6 +167,54 @@ export class ChatGPTService {
 
         } catch (error) {
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+        }
+    }
+
+    /**
+     * Generate a special 1-sentence love message (Heart Action)
+     */
+    async generateLoveMessage(): Promise<string> {
+        const apiKey = await this.apiKeyManager.getApiKey();
+        if (!apiKey) return "Error: No API Key";
+
+        const systemPrompt = this.buildSystemPrompt();
+        // Add specific instruction for love message
+        const instruction = `\n\n[SPECIAL INSTRUCTION]\nThe user just pressed the 'Heart' button (Action: Request Affection).
+Reply with a single, genuine, affectionate sentence that fits your character perfectly.
+It should be "love-love" but still in character (so if it's Aru, maybe a bit dorky cool; if Chihiro, efficient yet caring).
+MAX 1 SENTENCE.`;
+
+        const messages = [
+            { role: 'system', content: systemPrompt + instruction },
+            ...this.conversationHistory.slice(-5) // Minimal context
+        ];
+
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: messages,
+                    temperature: 0.8, // Slightly higher temp for emotion
+                    max_tokens: 100
+                })
+            });
+
+            if (!response.ok) return "서버 오류가 발생했습니다.";
+
+            const data: any = await response.json();
+            const content = data.choices[0].message.content.trim();
+
+            // Add to history so she remembers saying it
+            this.conversationHistory.push({ role: 'assistant', content });
+            return content;
+
+        } catch (e) {
+            return "지금은 좀 부끄러운걸...";
         }
     }
 

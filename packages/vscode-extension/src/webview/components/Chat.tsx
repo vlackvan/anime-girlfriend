@@ -18,6 +18,10 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
 
+    useEffect(() => {
+        console.log('Chat component mounted v2.1 - checking icons');
+    }, []);
+
     // Trigger initial greeting logic
     useEffect(() => {
         // Case 1: First Meeting (just finished onboarding)
@@ -37,10 +41,73 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isListening, setIsListening] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Voice Input Handler
+    const toggleVoiceInput = () => {
+        if (!('webkitSpeechRecognition' in window)) {
+            // Fallback or alert if not supported
+            alert('이 브라우저에서는 음성 인식을 지원하지 않습니다.');
+            return;
+        }
+
+        if (isListening) {
+            setIsListening(false);
+            // Stop logic is handled by the recognition instance if we kept it in ref, 
+            // but for simplicity let's assume valid browser support handling
+            return;
+        }
+
+        setIsListening(true);
+        const recognition = new (window as any).webkitSpeechRecognition();
+        recognition.lang = 'ko-KR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
+            setIsListening(false);
+        };
+
+        recognition.onerror = () => {
+            setIsListening(false);
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+
+        recognition.start();
+    };
+
+    // Image Input Handler
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Heart Button Handler
+    const handleHeartClick = () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        // Send special heart action
+        window.vscode.postMessage({
+            type: 'heartAction'
+        });
     };
 
     useEffect(() => {
@@ -122,23 +189,28 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     }, [streamingMessageId]);
 
     const handleSend = () => {
-        if (!inputValue.trim() || isLoading) return;
+        if ((!inputValue.trim() && !selectedImage) || isLoading) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             author: 'user',
-            content: inputValue.trim()
+            content: inputValue.trim(),
+            // We could display the image in the chat history too if we want, but for now just sending it.
+            // Ideally we'd add an 'image' property to Message interface to show it in the bubble.
         };
 
         setMessages(prev => [...prev, userMessage]);
-        setInputValue('');
-        setIsLoading(true);
 
         // Send to extension
         window.vscode.postMessage({
             type: 'sendMessage',
-            content: userMessage.content
+            content: userMessage.content,
+            images: selectedImage ? [selectedImage] : undefined
         });
+
+        setInputValue('');
+        setSelectedImage(null);
+        setIsLoading(true);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -209,8 +281,43 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="input-area">
+            {selectedImage && (
+                <div className="image-preview">
+                    <img src={selectedImage} alt="Selected" />
+                    <button className="remove-image" onClick={() => setSelectedImage(null)}>×</button>
+                </div>
+            )}
+            <div className="input-area new-layout">
+                <div className="left-controls">
+                    <button
+                        className={`icon-btn mic-btn ${isListening ? 'listening' : ''}`}
+                        onClick={toggleVoiceInput}
+                        title="음성 입력"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <label className="icon-btn image-btn" title="사진 첨부">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            style={{ display: 'none' }}
+                        />
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </label>
+                </div>
+
                 <textarea
+                    ref={textareaRef}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -218,9 +325,19 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     rows={1}
                     disabled={isLoading}
                 />
-                <button onClick={handleSend} disabled={isLoading || !inputValue.trim()}>
-                    전송
-                </button>
+
+                <div className="right-controls">
+                    <button
+                        className="icon-btn heart-btn"
+                        onClick={handleHeartClick}
+                        disabled={isLoading}
+                        title="사랑의 메시지 요청"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );

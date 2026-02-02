@@ -44,7 +44,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
 
                 case 'sendMessage':
-                    await this.handleChatMessage(message.content);
+                    await this.handleChatMessage(message.content, false, message.images);
+                    break;
+
+                case 'heartAction':
+                    await this.handleHeartAction();
                     break;
 
                 case 'enterApiKey':
@@ -141,6 +145,45 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
+    private async handleHeartAction() {
+        try {
+            // Check for API key
+            const hasApiKey = await this.apiKeyManager.hasApiKey();
+            if (!hasApiKey) {
+                this.postMessage({
+                    type: 'botMessage',
+                    content: '❌ No API key configured.',
+                    isComplete: true
+                });
+                return;
+            }
+
+            // Start streaming (or pseudo-streaming since it's short)
+            // Actually generateLoveMessage returns a string, not stream.
+            // We can just simulate stream or send as full message.
+            this.postMessage({
+                type: 'botMessageStart',
+                id: Date.now().toString()
+            });
+
+            // Show typing indicator... handled by frontend if we don't send tokens immediately? 
+            // Frontend shows '...' if botMessageStart is received but no tokens yet.
+
+            const loveMessage = await this.chatGPTService.generateLoveMessage();
+
+            this.postMessage({
+                type: 'botMessageComplete',
+                content: loveMessage
+            });
+
+        } catch (error) {
+            this.postMessage({
+                type: 'botMessageError',
+                error: "Failed to generate love message."
+            });
+        }
+    }
+
     private async handleGeneratePersonality(data: any) {
         try {
             console.log('[ChatPanel] Generating personality analysis...');
@@ -183,7 +226,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
-    private async handleChatMessage(content: string, isHidden: boolean = false) {
+    private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[]) {
         if (!isHidden) {
             console.log('[ChatPanel] User message:', content);
         }
@@ -225,7 +268,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     error: error.message
                 });
             }
-        });
+        }, images);
     }
 
     showOverlay(problemId: string) {
