@@ -180,15 +180,18 @@ export class ChatGPTService {
     /**
      * Generate Core Memories (Doppelgänger Interview)
      */
-    async generateCoreMemories(analysis: string, character: Character): Promise<any> {
+    async generateCoreMemories(
+        analysis: string,
+        character: Character,
+        essays: UserEssays,
+        solvedAcSummary: string
+    ): Promise<any> {
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
             throw new Error('No API key configured');
         }
 
-        // Analysis is no longer used for Character Memories, but we keep the signature for now or just ignore it.
-        // Better to update the logic to just use character.
-        const prompt = generateCoreMemoriesPrompt(character);
+        const prompt = generateCoreMemoriesPrompt(character, essays, solvedAcSummary);
 
         const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
 
@@ -228,6 +231,8 @@ export class ChatGPTService {
             let coreMemoriesSection = "";
             if (this.userProfile.coreMemories) {
                 const cm = this.userProfile.coreMemories;
+                const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
+
                 coreMemoriesSection = `
 ### HER CORE BELIEFS (Your Inner World)
 These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
@@ -235,6 +240,10 @@ These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character cons
 - **Your Future Vision**: ${cm.futureVision}
 - **Your Stress Response**: ${cm.stressStrategy}
 - **Your definition of Happiness**: ${cm.happiness}
+
+### SHARED MEMORIES (Context C - Your History with Him)
+These are real memories you share with the User (Boyfriend). Reference them to bond.
+${sharedMemories}
 `;
             }
 

@@ -9,6 +9,8 @@ export interface Demographics {
     field: string;
 }
 
+import { CoreMemories } from './webview/personality/types';
+
 // Stored user profile structure
 export interface StoredUserProfile {
     character: 'aru' | 'chihiro';
@@ -19,12 +21,7 @@ export interface StoredUserProfile {
         goal: string;
     };
     analysis?: string; // AI-generated personality analysis (from CoD + OpenAI)
-    coreMemories?: {
-        selfIntro: string;
-        futureVision: string;
-        stressStrategy: string;
-        happiness: string;
-    };
+    coreMemories?: CoreMemories;
     solvedAcData?: SolvedAcStats | SolvedAcManualInput; // Problem-solving context
     createdAt: string;
     updatedAt: string;

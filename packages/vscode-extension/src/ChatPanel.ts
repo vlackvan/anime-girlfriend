@@ -152,7 +152,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             // 2. Generate Core Memories
             const coreMemories = await this.chatGPTService.generateCoreMemories(
                 personalitySummary,
-                character
+                character,
+                essays,
+                contextSummary // passed as solvedAcSummary
             );
 
             console.log('[ChatPanel] Core Memories generated successfully');

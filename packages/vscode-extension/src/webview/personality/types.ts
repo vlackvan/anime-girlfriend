@@ -22,6 +22,7 @@ export interface CoreMemories {
     futureVision: string;
     stressStrategy: string;
     happiness: string;
+    sharedMemories: string[]; // 5 generated shared memories
 }
 
 export interface BFIScores {
