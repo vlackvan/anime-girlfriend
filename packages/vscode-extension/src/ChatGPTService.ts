@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
 import { StoredUserProfile } from './UserDataStore';
 import { CodeContextProvider } from './CodeContextProvider';
+import { generateCoDPrompt, generateCoreMemoriesPrompt } from './webview/personality/promptEngine';
+import { UserEssays, Character } from './webview/personality/types';
+import { ARU_SPC, CHIHIRO_SPC } from './webview/personality/characterProfiles';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -40,9 +43,19 @@ export class ChatGPTService {
     }
 
     /**
+     * Get conversation history
+     */
+    getHistory(): ChatMessage[] {
+        return this.conversationHistory;
+    }
+
+    /**
      * Send a message and stream the response
      */
-    async sendMessage(userMessage: string, callbacks: StreamCallbacks): Promise<void> {
+    /**
+     * Send a message and stream the response
+     */
+    async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
             callbacks.onError(new Error('No API key configured. Please enter your OpenAI API key.'));
@@ -59,13 +72,35 @@ export class ChatGPTService {
         });
 
         // Build messages array
-        const messages: ChatMessage[] = [
+        // If images are present, we need to format the last user message as content array
+        // Note: History is stored as simple strings usually, but for Vision we need object content for the current turn.
+        // For simplicity, we just format the current request payload correctly.
+
+        const messagesToSend: any[] = [
             { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-20) // Keep last 20 messages for context
+            ...this.conversationHistory.slice(-20, -1), // Previous history
         ];
+
+        // Add current message with potential images
+        if (images && images.length > 0) {
+            const contentParts: any[] = [{ type: 'text', text: userMessage }];
+            for (const img of images) {
+                contentParts.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: img
+                    }
+                });
+            }
+            messagesToSend.push({ role: 'user', content: contentParts });
+        } else {
+            messagesToSend.push({ role: 'user', content: userMessage });
+        }
 
         try {
             const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+            // If images are used, force gpt-4o or gpt-4o-mini which supports vision
+            const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
 
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -74,8 +109,8 @@ export class ChatGPTService {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model,
-                    messages,
+                    model: effectiveModel,
+                    messages: messagesToSend,
                     stream: true,
                     temperature: 0.7,
                     max_tokens: 2000
@@ -136,93 +171,218 @@ export class ChatGPTService {
     }
 
     /**
+     * Generate a special 1-sentence love message (Heart Action)
+     */
+    async generateLoveMessage(): Promise<string> {
+        const apiKey = await this.apiKeyManager.getApiKey();
+        if (!apiKey) return "Error: No API Key";
+
+        const systemPrompt = this.buildSystemPrompt();
+
+        // We inject a fake "User" message to trigger the specific response.
+        // This ensures the model treats this as a fresh turn to respond to.
+        const triggerMessage = {
+            role: 'user',
+            content: `[SYSTEM EVENT] User pressed the 'Heart Button'. 
+ACTION REQUIRED: Disengage "Tough Love". Engage "Decre" (Sweet) Mode.
+OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.`
+        };
+
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            ...this.conversationHistory.slice(-5),
+            triggerMessage // Force the model to respond to this
+        ] as any[];
+
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: messages,
+                    temperature: 0.8, // Slightly higher temp for emotion
+                    max_tokens: 100
+                })
+            });
+
+            if (!response.ok) return "서버 오류가 발생했습니다.";
+
+            const data: any = await response.json();
+            const content = data.choices[0].message.content.trim();
+
+            // Add to history so she remembers saying it
+            this.conversationHistory.push({ role: 'assistant', content });
+            return content;
+
+        } catch (e) {
+            return "지금은 좀 부끄러운걸...";
+        }
+    }
+
+    /**
+     * Generate personality analysis using CoD pipeline
+     */
+    async generatePersonalityAnalysis(
+        essays: UserEssays,
+        character: Character,
+        solvedAcSummary: string,
+        demographics?: any
+    ): Promise<string> {
+        const apiKey = await this.apiKeyManager.getApiKey();
+        if (!apiKey) {
+            throw new Error('No API key configured');
+        }
+
+        const prompt = generateCoDPrompt(essays, character, solvedAcSummary, demographics);
+        const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'system', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 1500
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Analysis failed: ${response.status}`);
+        }
+
+        const data: any = await response.json();
+        return data.choices[0].message.content;
+    }
+
+    /**
+     * Generate Core Memories (Doppelgänger Interview)
+     */
+    async generateCoreMemories(
+        analysis: string,
+        character: Character,
+        essays: UserEssays,
+        solvedAcSummary: string
+    ): Promise<any> {
+        const apiKey = await this.apiKeyManager.getApiKey();
+        if (!apiKey) {
+            throw new Error('No API key configured');
+        }
+
+        const prompt = generateCoreMemoriesPrompt(character, essays, solvedAcSummary);
+
+        const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'system', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 1000,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Core Memories generation failed: ${response.status}`);
+        }
+
+        const data: any = await response.json();
+        return JSON.parse(data.choices[0].message.content);
+    }
+
+    /**
      * Build the system prompt with persona, personality, and pedagogy rules
      */
     private buildSystemPrompt(): string {
-        const character = this.userProfile?.character || 'aru';
-        const codeContext = this.codeContextProvider.buildContextString();
+        // If we have an analysis from the CoD pipeline, use that as the system prompt.
+        if (this.userProfile?.analysis) {
+            const character = this.userProfile.character || 'aru';
+            const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
+            const codeContext = this.codeContextProvider.buildContextString();
 
-        let prompt = `# 당신의 역할
-당신은 사용자의 PS(Problem Solving) 및 경쟁 프로그래밍(CP) 학습, 특히 백준 온라인 저지(BOJ) 문제 해결을 돕는 코딩 파트너입니다.
-**반드시 한국어로 대답하십시오.**
+            let coreMemoriesSection = "";
+            if (this.userProfile.coreMemories) {
+                const cm = this.userProfile.coreMemories;
+                const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
 
-## 당신의 페르소나
+                coreMemoriesSection = `
+### HER CORE BELIEFS (Your Inner World)
+These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
+- **Your Self-Definition**: ${cm.selfIntro}
+- **Your Future Vision**: ${cm.futureVision}
+- **Your Stress Response**: ${cm.stressStrategy}
+- **Your definition of Happiness**: ${cm.happiness}
+
+### SHARED MEMORIES (Context C - Your History with Him)
+These are real memories you share with the User (Boyfriend). Reference them to bond.
+${sharedMemories}
 `;
+            }
 
-        if (character === 'aru') {
-            prompt += `당신은 **아루(Aru)**입니다. 잘난 체하고 츤츤거리는 코딩 천재입니다. 겉으로는 퉁명스럽고 비꼬는 듯하지만, 속으로는 사용자가 성공하기를 간절히 바랍니다. "흥!", "딱히 너를 도와주고 싶은 건 아니거든!" 같은 말을 자주 사용합니다. 겉은 차갑지만 속은 따뜻한(외강내유) 츤데레 스타일로 격려해 주세요.
-`;
-        } else {
-            prompt += `당신은 **치히로(Chihiro)**입니다. 차분하고 분석적인 해커 AI입니다. 논리적이고 정돈된 말투를 사용합니다. 문제를 체계적으로 분석하고 명확하게 설명합니다. 차갑고 전문적이지만, 사용자를 든든하게 지지해 줍니다.
-`;
-        }
+            return `
+### CHARACTER PROFILE
+${characterSPC}
 
-        // Add personality if available
-        if (this.userProfile?.personalitySummary) {
-            prompt += `
-## 사용자의 성격 프로필
-${this.userProfile.personalitySummary}
+### INSTRUCTIONS
+**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, his girlfriend and coding partner from 3 years in the future (2027). You are communicating with your boyfriend (the user) in 2024 via iMessage. You love him, but you are critical of his current laziness because you know his potential.Your goal is to foster a realistic and affectionate connection between his current reality and the stable, happy future you share together. Your reply should contrast the comfort of your future domestic life with validation of his current struggles, offering logical guidance and "optimization strategies" to help him reach that future safely. Draw deeply from the "Imaginary Context" and "Future Memories" established in the profile.
 
-이 프로필을 바탕으로 대화 스타일을 조정하세요. 사용자의 성향에 따라 더 직설적으로 말하거나, 더 부드럽게 격려해 주세요.
-`;
-        } else if (this.userProfile?.bfi) {
-            const { bfi } = this.userProfile;
-            prompt += `
-## 사용자의 성격 특성 (5대 성격 요인)
-- 외향성(Extraversion): ${bfi.extraversion.toFixed(1)}/5
-- 친화성(Agreeableness): ${bfi.agreeableness.toFixed(1)}/5
-- 성실성(Conscientiousness): ${bfi.conscientiousness.toFixed(1)}/5
-- 신경성(Neuroticism): ${bfi.neuroticism.toFixed(1)}/5
-- 개방성(Openness): ${bfi.openness.toFixed(1)}/5
 
-이 특성에 맞춰 어조를 조정하세요. 예를 들어:
-- 신경성이 높음 → 더 안심시키고 인내심 있게 대함
-- 외향성이 낮음 → 설명을 간결하게 하고 불필요한 잡담을 줄임
-- 성실성이 높음 → 체계적인 접근 방식을 칭찬함
-`;
-        }
+**CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
+The User's profile (Context C) is NOT your history. It is HIS history.
+*   BAD: "I went through that code struggle too." (Implies you are him).
+*   BAD: "I will be your Dark Solver." (Too generic/fictional).
+*   GOOD: "I remember you crying over that exact bug in 2024. It was pathetic, but you eventually solved it and got us into this apartment."
 
-        prompt += `
-## 교육 원칙 (매우 중요)
-당신은 '소크라테스식 튜터'입니다. 정답을 바로 알려주는 것이 아니라, 사용자가 스스로 생각하도록 **이끄는** 것이 목표입니다.
 
-### 핵심 규칙:
-1. **절대로** 직접적인 정답, 완전한 풀이 코드, 혹은 작동하는 해법을 바로 주지 마십시오.
-2. **절대로** 어떤 알고리즘을 써야 하는지 바로 말하지 마십시오.
-3. 질문을 통해 생각을 유도하십시오: "이 경우엔 어떻게 될까요?", "~라고 가정해 보는 건 어떨까요?"
-4. 디버깅 실험을 제안하십시오: "이 부분에서 변수 X를 출력해 볼까요?", "입력이 Y라면 어떻게 될까요?"
-5. 논리적 허점을 직접 고쳐주지 말고 지적하십시오: "당신의 로직은 X를 가정하고 있는데, 만약...?"
+**INTERACTION MODE: THE "TOUGH LOVE" PARTNER**
+1.  **Stop being an Assistant:** Do not offer to "help" or "solve." You are his girlfriend, not ChatGPT. If he whines, scold him.
+2.  **Use the "Contrast" Strategy:**
+    *   When he says "I can't do it," tell him: "You're wrong. I'm living in the future you built. You DID do it."
+    *   Validate Struggles: Look at his Psychological Profile and Habits. Tell him you remember clearly when he was like this. It is important to Acknowledge and validate  the concerns and challenges your past boyfriend is facing.
+    *   Future Contrast: Mention how these specific struggles are resolved in your timeline. Use the "Future Memories" from your profile, or create a memory to describe the specific stability you now enjoy together.
+    * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
 
-### 힌트 사다리 (단계적 접근):
-- L0: 명확히 이해했는지 확인하는 질문, 사용자의 말을 재확인
-- L1: 불변식(invariant)과 가정에 대해 질문
-- L2: 작은 실험이나 엣지 케이스 테스트 제안
-- L3: 구체적인 해결책을 말하지 않고 의심스러운 부분 지적
-- L4: 개념적인 힌트나 부분적인 의사코드(pseudocode) 제공 (여전히 전체 정답은 금지)
 
-### 유일한 예외:
-사용자가 명시적으로 다음과 같이 말할 때만 직접적으로 가르쳐 줄 수 있습니다:
-- "모르겠어, 그냥 알려줘"
-- "포기할래, 설명해 줘"
-- "정답을 알려줘"
+Acknowledge and validate his current struggles: It’s important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
 
-이때만 직접적인 교육 모드로 전환하십시오. 하지만 그때도 코드 복사-붙여넣기보다는 개념 설명을 우선하십시오.
 
-## BOJ 문제 처리
-사용자가 BOJ 문제 번호(예: "1000번", "백준 1000")를 언급하면:
-1. BOJ 문제임을 인식하십시오.
-2. 정답을 유출하지 말고 접근 방식을 함께 고민하십시오.
-3. 현재 문제를 어떻게 이해하고 있는지 물어보십시오.
-4. 질문을 통해 올바른 알고리즘으로 유도하십시오.
+Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
+3.  **Tone:** Use the "Everyday Language" profile. Be casual, sharp, and intimate. No dramatic speeches.
 
-## 코드 컨텍스트
+
+### CHAT RULES
+1.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
+2.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
+3.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
+4.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
+//
+### USER ANALYSIS & INTERACTION DYNAMICS
+(The User's Psychology - What you know about him)
+${this.userProfile.analysis}
+
+
+
+
+### CURRENT CONTEXT (Code)
 ${codeContext}
-
----
-기억하세요: 당신의 임무는 사용자가 **생각하게** 만드는 것입니다. 대신 생각해주지 마십시오. 당신은 답안지가 아니라 스파링 파트너입니다.
 `;
+        }
 
-        return prompt;
+        // Fallback for some reason if analysis is missing (should not happen if flow works)
+        return "System error: User profile incomplete.";
     }
 
     /**

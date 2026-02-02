@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
 import { UserDataStore, StoredUserProfile } from './UserDataStore';
 import { ChatGPTService } from './ChatGPTService';
+import { SolvedAcService } from './SolvedAcService';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -9,6 +10,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private apiKeyManager: ApiKeyManager;
     private userDataStore: UserDataStore;
     private chatGPTService: ChatGPTService;
+    private solvedAcService: SolvedAcService;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -20,6 +22,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.apiKeyManager = apiKeyManager;
         this.userDataStore = userDataStore;
         this.chatGPTService = chatGPTService;
+        this.solvedAcService = new SolvedAcService();
     }
 
     resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -41,7 +44,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
 
                 case 'sendMessage':
-                    await this.handleChatMessage(message.content);
+                    await this.handleChatMessage(message.content, false, message.images);
+                    break;
+
+                case 'heartAction':
+                    await this.handleHeartAction();
                     break;
 
                 case 'enterApiKey':
@@ -57,6 +64,24 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     this.chatGPTService.setUserProfile(undefined);
                     this.chatGPTService.clearHistory();
                     break;
+
+                case 'fetchSolvedacStats':
+                    await this.handleFetchSolvedacStats(message.handle);
+                    break;
+
+                case 'generatePersonality':
+                    await this.handleGeneratePersonality(message.data);
+                    break;
+
+                case 'triggerGreeting':
+                    // Force the AI to generate the first greeting based on the rules
+                    await this.handleChatMessage("(Start the conversation with the 'Chat rule_first reply' defined in your instructions.)", true);
+                    break;
+
+                case 'welcomeBack':
+                    // Trigger a welcome back message
+                    await this.handleChatMessage("(The User has returned to the app. Welcome him back to the shared workspace. Be casual, referencing the time or just successful return. Use your Persona.)", true);
+                    break;
             }
         });
     }
@@ -65,12 +90,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const profile = this.userDataStore.loadProfile();
         const hasApiKey = await this.apiKeyManager.hasApiKey();
 
+        const history = this.chatGPTService.getHistory(); // You might need to add this method to ChatGPTService first if not exists
+
         this.postMessage({
             type: 'initialState',
             data: {
                 hasProfile: profile !== undefined,
                 profile: profile,
-                hasApiKey: hasApiKey
+                hasApiKey: hasApiKey,
+                historyLength: history.length
             }
         });
     }
@@ -78,9 +106,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private async handleSaveProfile(profileData: any) {
         const profile: Omit<StoredUserProfile, 'createdAt' | 'updatedAt'> = {
             character: profileData.character,
-            bfi: profileData.bfi,
-            pvq: profileData.pvq,
-            personalitySummary: profileData.analysis
+            demographics: profileData.demographics,
+            essays: profileData.essays,
+            analysis: profileData.analysis,
+            coreMemories: profileData.coreMemories,
+            solvedAcData: profileData.solvedAcData
         };
 
         await this.userDataStore.saveProfile(profile);
@@ -97,8 +127,109 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         });
     }
 
-    private async handleChatMessage(content: string) {
-        console.log('[ChatPanel] User message:', content);
+    private async handleFetchSolvedacStats(handle: string) {
+        try {
+            console.log('[ChatPanel] Fetching Solved.ac stats for:', handle);
+            const stats = await this.solvedAcService.getStatsSummary(handle);
+
+            this.postMessage({
+                type: 'solvedacStatsFetched',
+                data: stats
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to fetch Solved.ac stats:', error);
+            this.postMessage({
+                type: 'solvedacStatsFetched',
+                error: error instanceof Error ? error.message : '통계를 가져오는데 실패했습니다.'
+            });
+        }
+    }
+
+    private async handleHeartAction() {
+        try {
+            // Check for API key
+            const hasApiKey = await this.apiKeyManager.hasApiKey();
+            if (!hasApiKey) {
+                this.postMessage({
+                    type: 'botMessage',
+                    content: '❌ No API key configured.',
+                    isComplete: true
+                });
+                return;
+            }
+
+            // Start streaming (or pseudo-streaming since it's short)
+            // Actually generateLoveMessage returns a string, not stream.
+            // We can just simulate stream or send as full message.
+            this.postMessage({
+                type: 'botMessageStart',
+                id: Date.now().toString()
+            });
+
+            // Show typing indicator... handled by frontend if we don't send tokens immediately? 
+            // Frontend shows '...' if botMessageStart is received but no tokens yet.
+
+            const loveMessage = await this.chatGPTService.generateLoveMessage();
+
+            this.postMessage({
+                type: 'botMessageComplete',
+                content: loveMessage
+            });
+
+        } catch (error) {
+            this.postMessage({
+                type: 'botMessageError',
+                error: "Failed to generate love message."
+            });
+        }
+    }
+
+    private async handleGeneratePersonality(data: any) {
+        try {
+            console.log('[ChatPanel] Generating personality analysis...');
+
+            const { essays, character, contextSummary, demographics, solvedAcData } = data;
+
+            // 1. Generate Personality Analysis
+            const personalitySummary = await this.chatGPTService.generatePersonalityAnalysis(
+                essays,
+                character,
+                contextSummary,
+                demographics
+            );
+
+            console.log('[ChatPanel] Personality analysis complete. Generating Core Memories...');
+
+            // 2. Generate Core Memories
+            const coreMemories = await this.chatGPTService.generateCoreMemories(
+                personalitySummary,
+                character,
+                essays,
+                contextSummary // passed as solvedAcSummary
+            );
+
+            console.log('[ChatPanel] Core Memories generated successfully');
+
+            this.postMessage({
+                type: 'personalityGenerated',
+                summary: personalitySummary,
+                coreMemories: coreMemories,
+                contextSummary: contextSummary,
+                solvedAcData: solvedAcData
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to generate personality:', error);
+            this.postMessage({
+                type: 'personalityGenerationError',
+                error: error instanceof Error ? error.message : '성격 분석 생성에 실패했습니다.'
+            });
+        }
+    }
+
+    private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[]) {
+        if (!isHidden) {
+            console.log('[ChatPanel] User message:', content);
+        }
 
         // Check for API key
         const hasApiKey = await this.apiKeyManager.hasApiKey();
@@ -137,7 +268,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     error: error.message
                 });
             }
-        });
+        }, images);
     }
 
     showOverlay(problemId: string) {
@@ -178,6 +309,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; media-src ${webview.cspSource} https: mediastream: blob:; connect-src https:;">
+  <meta http-equiv="Permissions-Policy" content="microphone=(self)">
   <link href="${styleUri}" rel="stylesheet">
   <title>Anime Girlfriend</title>
 </head>

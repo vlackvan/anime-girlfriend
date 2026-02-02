@@ -11,25 +11,64 @@ interface Message {
 interface ChatProps {
     character: Character;
     profile: UserProfile;
+    historyLength?: number;
 }
 
-export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            author: 'bot',
-            content: character === 'aru'
-                ? "흥! 이제야 온 거야? 뭐, 도와주긴 하겠지만... 봐줄 생각은 마! 💢"
-                : "안녕하세요. 코드를 분석할 준비가 되었습니다. 체계적으로 문제를 해결해 봅시다. 🔍"
+export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 0 }) => {
+    // Generate initial greeting message
+    const [messages, setMessages] = useState<Message[]>([]);
+
+    useEffect(() => {
+        console.log('Chat component mounted v2.1 - checking icons');
+    }, []);
+
+    // Trigger initial greeting logic
+    useEffect(() => {
+        // Case 1: First Meeting (just finished onboarding)
+        if (profile.isFirstMeeting && messages.length === 0) {
+            window.vscode.postMessage({
+                type: 'triggerGreeting'
+            });
         }
-    ]);
+        // Case 2: Welcome Back (Returning User, New Session)
+        // If it's NOT the first meeting, and we have no local messages, and backend history is empty
+        else if (!profile.isFirstMeeting && messages.length === 0 && historyLength === 0) {
+            window.vscode.postMessage({
+                type: 'welcomeBack'
+            });
+        }
+    }, [profile.isFirstMeeting, historyLength]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Image Input Handler
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Heart Button Handler
+    const handleHeartClick = () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        // Send special heart action
+        window.vscode.postMessage({
+            type: 'heartAction'
+        });
     };
 
     useEffect(() => {
@@ -111,23 +150,28 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
     }, [streamingMessageId]);
 
     const handleSend = () => {
-        if (!inputValue.trim() || isLoading) return;
+        if ((!inputValue.trim() && !selectedImage) || isLoading) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             author: 'user',
-            content: inputValue.trim()
+            content: inputValue.trim(),
+            // We could display the image in the chat history too if we want, but for now just sending it.
+            // Ideally we'd add an 'image' property to Message interface to show it in the bubble.
         };
 
         setMessages(prev => [...prev, userMessage]);
-        setInputValue('');
-        setIsLoading(true);
 
         // Send to extension
         window.vscode.postMessage({
             type: 'sendMessage',
-            content: userMessage.content
+            content: userMessage.content,
+            images: selectedImage ? [selectedImage] : undefined
         });
+
+        setInputValue('');
+        setSelectedImage(null);
+        setIsLoading(true);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -198,8 +242,31 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="input-area">
+            {selectedImage && (
+                <div className="image-preview">
+                    <img src={selectedImage} alt="Selected" />
+                    <button className="remove-image" onClick={() => setSelectedImage(null)}>×</button>
+                </div>
+            )}
+            <div className="input-area new-layout">
+                <div className="left-controls">
+                    <label className="icon-btn image-btn" title="사진 첨부">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            style={{ display: 'none' }}
+                        />
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </label>
+                </div>
+
                 <textarea
+                    ref={textareaRef}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -207,9 +274,19 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
                     rows={1}
                     disabled={isLoading}
                 />
-                <button onClick={handleSend} disabled={isLoading || !inputValue.trim()}>
-                    전송
-                </button>
+
+                <div className="right-controls">
+                    <button
+                        className="icon-btn heart-btn"
+                        onClick={handleHeartClick}
+                        disabled={isLoading}
+                        title="사랑의 메시지 요청"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     );

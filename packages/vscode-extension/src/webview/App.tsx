@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Onboarding } from './components/Onboarding';
+import { DemographicsForm, Demographics } from './components/DemographicsForm';
 import { SurveyForm } from './components/SurveyForm';
 import { Chat } from './components/Chat';
 import { Overlay } from './components/Overlay';
@@ -17,14 +18,17 @@ declare global {
     }
 }
 
-type AppStep = 'loading' | 'character' | 'survey' | 'chat';
+type AppStep = 'loading' | 'character' | 'demographics' | 'survey' | 'chat';
 
 export const App: React.FC = () => {
     const [step, setStep] = useState<AppStep>('loading');
     const [character, setCharacter] = useState<Character | undefined>();
+    const [demographics, setDemographics] = useState<Demographics | undefined>();
     const [profile, setProfile] = useState<UserProfile | undefined>();
     const [showOverlay, setShowOverlay] = useState(false);
     const [overlayProblemId, setOverlayProblemId] = useState('');
+
+    const [historyLength, setHistoryLength] = useState(0);
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
@@ -37,12 +41,17 @@ export const App: React.FC = () => {
                         // Profile exists, skip to chat
                         const savedProfile = message.data.profile;
                         setCharacter(savedProfile.character);
+                        setDemographics(savedProfile.demographics);
                         setProfile({
-                            bfi: savedProfile.bfi,
-                            pvq: savedProfile.pvq,
                             character: savedProfile.character,
-                            analysis: savedProfile.personalitySummary
+                            demographics: savedProfile.demographics,
+                            essays: savedProfile.essays,
+                            analysis: savedProfile.analysis,
+                            coreMemories: savedProfile.coreMemories,
+                            solvedAcData: savedProfile.solvedAcData,
+                            isFirstMeeting: false
                         });
+                        setHistoryLength(message.data.historyLength || 0);
                         setStep('chat');
                     } else {
                         // No profile, start onboarding
@@ -80,16 +89,33 @@ export const App: React.FC = () => {
 
     const handleCharacterSelect = (selected: Character) => {
         setCharacter(selected);
+        setStep('demographics');
+    };
+
+    const handleDemographicsComplete = (demo: Demographics) => {
+        setDemographics(demo);
+        setStep('survey');
+    };
+
+    const handleDemographicsSkip = () => {
+        setDemographics(undefined);
         setStep('survey');
     };
 
     const handleSurveyComplete = (userProfile: UserProfile) => {
-        setProfile(userProfile);
+        // Merge demographics into profile
+        const completeProfile = {
+            ...userProfile,
+            demographics,
+            isFirstMeeting: true, // Flag to indicate this is the first chat after onboarding
+        };
+
+        setProfile(completeProfile);
 
         // Save profile to extension
         window.vscode.postMessage({
             type: 'saveProfile',
-            data: userProfile
+            data: completeProfile
         });
 
         setStep('chat');
@@ -118,9 +144,17 @@ export const App: React.FC = () => {
                 <Onboarding onCharacterSelect={handleCharacterSelect} />
             )}
 
+            {step === 'demographics' && (
+                <DemographicsForm
+                    onComplete={handleDemographicsComplete}
+                    onSkip={handleDemographicsSkip}
+                />
+            )}
+
             {step === 'survey' && character && (
                 <SurveyForm
                     character={character}
+                    demographics={demographics}
                     onComplete={handleSurveyComplete}
                 />
             )}
@@ -129,6 +163,7 @@ export const App: React.FC = () => {
                 <Chat
                     character={character}
                     profile={profile}
+                    historyLength={historyLength}
                 />
             )}
         </div>

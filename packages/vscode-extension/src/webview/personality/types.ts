@@ -1,35 +1,61 @@
 // Character types
 export type Character = 'aru' | 'chihiro';
 
-// BFI-2-S (Big Five Inventory - Short)
-export interface BFIScores {
-    extraversion: number;      // 1-5
-    agreeableness: number;     // 1-5
-    conscientiousness: number; // 1-5
-    neuroticism: number;       // 1-5 (Negative Emotionality)
-    openness: number;          // 1-5 (Open-Mindedness)
+// User Essays for Implicit Personality Extraction
+export interface UserEssays {
+    routine: string;  // Routine (C) -> Habits
+    struggle: string; // Struggle (P via C) -> Neuroticism/Regulation
+    goal: string;     // Goal (S) -> Values/Ambition
 }
 
-// PVQ (Portrait Values Questionnaire) Full 10 Values
-export interface PVQScores {
-    universalism: number;
-    benevolence: number;
-    tradition: number;
-    conformity: number;
-    security: number;
-    power: number;
-    achievement: number;
-    hedonism: number;
-    stimulation: number;
-    selfDirection: number;
+// Demographics
+export interface Demographics {
+    nickname?: string;
+    ageRange: string;
+    status: string;
+    field: string;
 }
 
 // Combined user profile
+export interface CoreMemories {
+    selfIntro: string;
+    futureVision: string;
+    stressStrategy: string;
+    happiness: string;
+    sharedMemories: string[]; // 5 generated shared memories
+}
+
+export interface BFIScores {
+    openness: number;
+    conscientiousness: number;
+    extraversion: number;
+    agreeableness: number;
+    neuroticism: number;
+}
+
+export interface PVQScores {
+    selfDirection: number;
+    power: number;
+    universalism: number;
+    achievement: number;
+    security: number;
+    stimulation: number;
+    conformity: number;
+    tradition: number;
+    hedonism: number;
+    benevolence: number;
+}
+
 export interface UserProfile {
-    bfi: BFIScores;
-    pvq: PVQScores;
+    essays: UserEssays;
     character: Character;
-    analysis?: string; // CoD Pipeline Analysis
+    demographics?: Demographics;
+    analysis?: string; // AI-generated personality analysis
+    coreMemories?: CoreMemories; // New field
+    solvedAcData?: any; // Solved.ac data for referenced in chat
+    isFirstMeeting?: boolean; // Flag for initial greeting after onboarding
+    bfi?: BFIScores;
+    pvq?: PVQScores;
 }
 
 // Survey question structure
