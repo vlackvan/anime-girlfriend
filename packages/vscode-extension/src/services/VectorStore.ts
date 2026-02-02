@@ -79,7 +79,6 @@ export class VectorStore {
             // Insert embedding
             await this.dbService.insertEmbedding(documentId, embedding);
 
-            console.log('[VectorStore] Document added:', documentId);
             return documentId;
         } catch (error) {
             console.error('[VectorStore] Failed to add document:', error);
@@ -98,19 +97,23 @@ export class VectorStore {
         }
 
         const documentIds: string[] = [];
+        const total = documents.length;
 
-        console.log(`[VectorStore] Adding ${documents.length} documents...`);
-
-        for (const doc of documents) {
+        for (let i = 0; i < documents.length; i++) {
             try {
-                const id = await this.addDocument(doc);
+                const id = await this.addDocument(documents[i]);
                 documentIds.push(id);
+
+                // Progress logging every 1000 documents
+                if ((i + 1) % 1000 === 0) {
+                    console.log(`[VectorStore] Progress: ${i + 1}/${total} documents added`);
+                }
             } catch (error) {
                 console.error('[VectorStore] Failed to add document, continuing...', error);
             }
         }
 
-        console.log(`[VectorStore] Successfully added ${documentIds.length}/${documents.length} documents`);
+        console.log(`[VectorStore] Completed: ${documentIds.length}/${documents.length} documents added`);
         return documentIds;
     }
 
@@ -224,6 +227,19 @@ export class VectorStore {
      */
     public isEnabled(): boolean {
         return this.dbService.isRagEnabled();
+    }
+
+    /**
+     * Get statistics about the vector store
+     */
+    public async getStats(): Promise<{ documentCount: number; isEnabled: boolean }> {
+        const documentCount = await this.getDocumentCount();
+        const isEnabled = this.isEnabled();
+
+        return {
+            documentCount,
+            isEnabled
+        };
     }
 
     /**
