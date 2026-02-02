@@ -151,29 +151,58 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     return (
         <div className="chat">
             <div className="chat-header">
-                <img
-                    src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
-                    alt={character}
-                    className="avatar"
-                />
-                <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                <span className="status">
-                    {isLoading ? '💭 생각 중...' : '🟢 온라인'}
-                </span>
+                <div className="chat-title">ANIME GIRLFRIEND: CHAT</div>
+                <div className="chat-header-info">
+                    <img
+                        src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                        alt={character}
+                        className="avatar"
+                    />
+                    <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                    <div className="status-indicator">
+                        <span className="status-dot"></span>
+                        <span className="status-text">온라인</span>
+                    </div>
+                </div>
             </div>
 
             <div className="messages">
                 {messages.map((msg) => (
                     <div key={msg.id} className={`message ${msg.author}`}>
-                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
-                            {msg.content || (msg.isStreaming && '...')}
-                        </div>
+                        {msg.author === 'bot' && (
+                            <>
+                                <img
+                                    src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                    alt={character}
+                                    className="avatar"
+                                />
+                                <div className="message-content">
+                                    <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                    <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                        {msg.content || (msg.isStreaming && '...')}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        {msg.author === 'user' && (
+                            <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                {msg.content}
+                            </div>
+                        )}
                     </div>
                 ))}
                 {isLoading && !streamingMessageId && (
                     <div className="message bot">
-                        <div className="bubble typing">
-                            <span>.</span><span>.</span><span>.</span>
+                        <img
+                            src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                            alt={character}
+                            className="avatar"
+                        />
+                        <div className="message-content">
+                            <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                            <div className="bubble typing">
+                                <span>.</span><span>.</span><span>.</span>
+                            </div>
                         </div>
                     </div>
                 )}
