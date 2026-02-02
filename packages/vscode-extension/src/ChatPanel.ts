@@ -274,7 +274,19 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     showOverlay(problemId: string) {
         this.postMessage({
             type: 'showOverlay',
-            problemId: problemId
+            problemId: problemId,
+            status: 'accepted'
+        });
+    }
+
+    showJudgeResult(result: any) {
+        this.postMessage({
+            type: 'showJudgeResult',
+            problemId: result.problemId,
+            resultText: result.resultText,
+            status: result.status,
+            memory: result.memory,
+            time: result.time
         });
     }
 

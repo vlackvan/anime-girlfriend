@@ -606,6 +606,14 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
+.overlay.overlay-success {
+    background: linear-gradient(135deg, rgba(255, 158, 196, 0.95) 0%, rgba(255, 182, 193, 0.95) 100%);
+}
+
+.overlay.overlay-failure {
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.95) 0%, rgba(148, 163, 184, 0.95) 100%);
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -681,6 +689,30 @@ body {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.8);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.overlay .result-text {
+    font-size: 1.4rem;
+    color: white;
+    margin-bottom: 12px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    font-weight: 700;
+}
+
+.overlay .judge-info {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+}
+
+.overlay .judge-info .info-item {
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
 }
 
 /* Solved.ac Integration */

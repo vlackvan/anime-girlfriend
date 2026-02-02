@@ -27,6 +27,10 @@ export const App: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile | undefined>();
     const [showOverlay, setShowOverlay] = useState(false);
     const [overlayProblemId, setOverlayProblemId] = useState('');
+    const [overlayResultText, setOverlayResultText] = useState('');
+    const [overlayStatus, setOverlayStatus] = useState<'accepted' | 'wrong_answer' | 'time_limit' | 'memory_limit' | 'runtime_error' | 'compile_error' | 'output_limit' | 'presentation_error' | 'unknown'>('accepted');
+    const [overlayMemory, setOverlayMemory] = useState('');
+    const [overlayTime, setOverlayTime] = useState('');
 
     const [historyLength, setHistoryLength] = useState(0);
 
@@ -61,10 +65,26 @@ export const App: React.FC = () => {
 
                 case 'showOverlay':
                     setOverlayProblemId(message.problemId);
+                    setOverlayResultText(message.resultText || '');
+                    setOverlayStatus(message.status || 'accepted');
+                    setOverlayMemory(message.memory || '');
+                    setOverlayTime(message.time || '');
                     setShowOverlay(true);
                     setTimeout(() => {
                         setShowOverlay(false);
-                    }, 3000);
+                    }, 4000);
+                    break;
+
+                case 'showJudgeResult':
+                    setOverlayProblemId(message.problemId);
+                    setOverlayResultText(message.resultText || '');
+                    setOverlayStatus(message.status || 'unknown');
+                    setOverlayMemory(message.memory || '');
+                    setOverlayTime(message.time || '');
+                    setShowOverlay(true);
+                    setTimeout(() => {
+                        setShowOverlay(false);
+                    }, 4000);
                     break;
 
                 case 'command':
@@ -136,6 +156,10 @@ export const App: React.FC = () => {
                 <Overlay
                     character={character}
                     problemId={overlayProblemId}
+                    resultText={overlayResultText}
+                    status={overlayStatus}
+                    memory={overlayMemory}
+                    time={overlayTime}
                     onClose={() => setShowOverlay(false)}
                 />
             )}
