@@ -11,21 +11,29 @@ interface Message {
 interface ChatProps {
     character: Character;
     profile: UserProfile;
+    historyLength?: number;
 }
 
-export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
+export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 0 }) => {
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
 
-    // Trigger initial greeting if it's the first meeting and no messages yet
+    // Trigger initial greeting logic
     useEffect(() => {
+        // Case 1: First Meeting (just finished onboarding)
         if (profile.isFirstMeeting && messages.length === 0) {
-            // Signal to backend to generate the specific first greeting
             window.vscode.postMessage({
                 type: 'triggerGreeting'
             });
         }
-    }, [profile.isFirstMeeting]);
+        // Case 2: Welcome Back (Returning User, New Session)
+        // If it's NOT the first meeting, and we have no local messages, and backend history is empty
+        else if (!profile.isFirstMeeting && messages.length === 0 && historyLength === 0) {
+            window.vscode.postMessage({
+                type: 'welcomeBack'
+            });
+        }
+    }, [profile.isFirstMeeting, historyLength]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);

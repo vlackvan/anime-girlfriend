@@ -43,6 +43,13 @@ export class ChatGPTService {
     }
 
     /**
+     * Get conversation history
+     */
+    getHistory(): ChatMessage[] {
+        return this.conversationHistory;
+    }
+
+    /**
      * Send a message and stream the response
      */
     async sendMessage(userMessage: string, callbacks: StreamCallbacks): Promise<void> {

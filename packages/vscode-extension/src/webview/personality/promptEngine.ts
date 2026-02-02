@@ -122,6 +122,10 @@ Create 5 specific, distinct memories of your relationship from 2024-2027.
 - Show how you supported him (or scolded him).
 - Make them feel intimate and grounded in the lore.
 
+CRITICAL RULE:
+- **ALL OUTPUT MUST BE IN KOREAN.**
+- Use natural Korean suitable for the character (Banmal/Casual tone).
+
 RESPONSE FORMAT:
 Return ONLY a valid JSON object with these keys:
 {

@@ -73,6 +73,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     // Force the AI to generate the first greeting based on the rules
                     await this.handleChatMessage("(Start the conversation with the 'Chat rule_first reply' defined in your instructions.)", true);
                     break;
+
+                case 'welcomeBack':
+                    // Trigger a welcome back message
+                    await this.handleChatMessage("(The User has returned to the app. Welcome him back to the shared workspace. Be casual, referencing the time or just successful return. Use your Persona.)", true);
+                    break;
             }
         });
     }
@@ -81,12 +86,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const profile = this.userDataStore.loadProfile();
         const hasApiKey = await this.apiKeyManager.hasApiKey();
 
+        const history = this.chatGPTService.getHistory(); // You might need to add this method to ChatGPTService first if not exists
+
         this.postMessage({
             type: 'initialState',
             data: {
                 hasProfile: profile !== undefined,
                 profile: profile,
-                hasApiKey: hasApiKey
+                hasApiKey: hasApiKey,
+                historyLength: history.length
             }
         });
     }

@@ -28,6 +28,8 @@ export const App: React.FC = () => {
     const [showOverlay, setShowOverlay] = useState(false);
     const [overlayProblemId, setOverlayProblemId] = useState('');
 
+    const [historyLength, setHistoryLength] = useState(0);
+
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const message = event.data;
@@ -49,6 +51,7 @@ export const App: React.FC = () => {
                             solvedAcData: savedProfile.solvedAcData,
                             isFirstMeeting: false
                         });
+                        setHistoryLength(message.data.historyLength || 0);
                         setStep('chat');
                     } else {
                         // No profile, start onboarding
@@ -160,6 +163,7 @@ export const App: React.FC = () => {
                 <Chat
                     character={character}
                     profile={profile}
+                    historyLength={historyLength}
                 />
             )}
         </div>
