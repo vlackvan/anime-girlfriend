@@ -178,16 +178,21 @@ export class ChatGPTService {
         if (!apiKey) return "Error: No API Key";
 
         const systemPrompt = this.buildSystemPrompt();
-        // Add specific instruction for love message
-        const instruction = `\n\n[SPECIAL INSTRUCTION]\nThe user just pressed the 'Heart' button (Action: Request Affection).
-Reply with a single, genuine, affectionate sentence that fits your character perfectly.
-It should be "love-love" but still in character (so if it's Aru, maybe a bit dorky cool; if Chihiro, efficient yet caring).
-MAX 1 SENTENCE.`;
+
+        // We inject a fake "User" message to trigger the specific response.
+        // This ensures the model treats this as a fresh turn to respond to.
+        const triggerMessage = {
+            role: 'user',
+            content: `[SYSTEM EVENT] User pressed the 'Heart Button'. 
+ACTION REQUIRED: Disengage "Tough Love". Engage "Decre" (Sweet) Mode.
+OUTPUT: One genuine, romantic, affectionate sentence. No greetings.`
+        };
 
         const messages = [
-            { role: 'system', content: systemPrompt + instruction },
-            ...this.conversationHistory.slice(-5) // Minimal context
-        ];
+            { role: 'system', content: systemPrompt },
+            ...this.conversationHistory.slice(-5),
+            triggerMessage // Force the model to respond to this
+        ] as any[];
 
         try {
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
