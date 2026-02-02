@@ -40,7 +40,6 @@ export interface SolvedAcStats {
     class: number;
     problemStats: SolvedAcProblemStat[];
     tagStats: SolvedAcTagStat[];
-    top100: SolvedAcTop100Problem[];
     summary: string;
 }
 
@@ -93,7 +92,16 @@ export class SolvedAcService {
         if (!response.ok) {
             throw new Error(`Failed to fetch problem stats for ${handle}`);
         }
-        return response.json() as Promise<SolvedAcProblemStat[]>;
+        const data = await response.json();
+
+        // Data is Array< { level: number, solved: number, ... } >
+        // We need to map 'solved' to 'count'
+        const rawList = Array.isArray(data) ? data : (data as any).items || [];
+
+        return rawList.map((item: any) => ({
+            level: item.level,
+            count: item.solved // Map 'solved' to 'count'
+        }));
     }
 
     /**
@@ -104,21 +112,15 @@ export class SolvedAcService {
         if (!response.ok) {
             throw new Error(`Failed to fetch tag stats for ${handle}`);
         }
-        // The API returns an array directly
         const data = await response.json();
-        return (data as any).items as SolvedAcTagStat[];
-    }
 
-    /**
-     * Fetch user's top 100 solved problems (used for rating calculation)
-     */
-    async getUserTop100(handle: string): Promise<SolvedAcTop100Problem[]> {
-        const response = await fetch(`${SolvedAcService.API_BASE}/user/top_100?handle=${encodeURIComponent(handle)}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch top 100 for ${handle}`);
-        }
-        const data = await response.json();
-        return data.items || [];
+        // Data is { items: Array< { tag: {...}, solved: number, ... } > }
+        const rawItems = Array.isArray(data) ? data : (data as any).items || [];
+
+        return rawItems.map((item: any) => ({
+            tag: item.tag,
+            count: item.solved // Map 'solved' to 'count'
+        }));
     }
 
     /**
@@ -145,15 +147,14 @@ export class SolvedAcService {
     async getStatsSummary(handle: string): Promise<SolvedAcStats> {
         try {
             // Fetch all data in parallel
-            const [userInfo, problemStats, tagStats, top100] = await Promise.all([
+            const [userInfo, problemStats, tagStats] = await Promise.all([
                 this.getUserInfo(handle),
                 this.getUserProblemStats(handle),
                 this.getUserProblemTagStats(handle),
-                this.getUserTop100(handle),
             ]);
 
             // Generate natural language summary in Korean
-            const summary = this.generateSummaryFromStats(userInfo, problemStats, tagStats, top100);
+            const summary = this.generateSummaryFromStats(userInfo, problemStats, tagStats);
 
             return {
                 handle: userInfo.handle,
@@ -163,7 +164,6 @@ export class SolvedAcService {
                 class: userInfo.class,
                 problemStats,
                 tagStats,
-                top100,
                 summary,
             };
         } catch (error) {
@@ -180,8 +180,7 @@ export class SolvedAcService {
     private generateSummaryFromStats(
         userInfo: SolvedAcUserInfo,
         problemStats: SolvedAcProblemStat[],
-        tagStats: SolvedAcTagStat[],
-        top100: SolvedAcTop100Problem[]
+        tagStats: SolvedAcTagStat[]
     ): string {
         const tierName = this.getTierName(userInfo.tier);
         const parts: string[] = [];
@@ -203,13 +202,26 @@ export class SolvedAcService {
         // Tag proficiency
         if (tagStats.length > 0) {
             const sortedTags = [...tagStats].sort((a, b) => b.count - a.count);
-            const topTags = sortedTags.slice(0, 5).filter(t => t.count > 0);
 
-            if (topTags.length > 0) {
-                const tagNames = topTags.map(t =>
-                    `${this.getKoreanTagName(t.tag)} (${t.count}개)`
+            const proficientTags = sortedTags.filter(t => t.count > 10);
+            const basicTags = sortedTags.filter(t => t.count >= 1 && t.count <= 10);
+
+            // Proficient tags (Top 5 max)
+            if (proficientTags.length > 0) {
+                const tagNames = proficientTags.slice(0, 5).map(t =>
+                    `${this.getKoreanTagName(t.tag)}`
                 );
-                parts.push(`주요 알고리즘 분야는 ${tagNames.join(', ')}입니다.`);
+                parts.push(`다음 태그와 관련된 문제 해결에 능숙합니다: ${tagNames.join(', ')}.`);
+            }
+
+            // Basic tags (Top 5 max, if no proficient tags, maybe show more? logic: just show top 5 of basic too)
+            if (basicTags.length > 0) {
+                // If we have proficient tags, we might want to limit basic tags to avoid too much noise.
+                // But let's just show top 5 basic ones too.
+                const tagNames = basicTags.slice(0, 5).map(t =>
+                    `${this.getKoreanTagName(t.tag)}`
+                );
+                parts.push(`다음 태그에 대해 기초적인 이해를 가지고 있습니다: ${tagNames.join(', ')}.`);
             }
         }
 
@@ -258,7 +270,7 @@ export class SolvedAcService {
 
         // Proficient areas
         if (proficientAreas.length > 0) {
-            parts.push(`강점 분야는 ${proficientAreas.join(', ')}입니다.`);
+            parts.push(`다음 분야의 문제 해결에 능숙합니다: ${proficientAreas.join(', ')}.`);
         }
 
         // Weak areas

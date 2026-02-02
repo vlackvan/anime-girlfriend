@@ -288,32 +288,63 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                             placeholder="예: q99"
                             value={bojHandle}
                             onChange={(e) => setBojHandle(e.target.value)}
-                            disabled={fetchingStats}
+                            disabled={fetchingStats || !!solvedacData}
                         />
 
                         {fetchError && (
                             <p className="error-message">{fetchError}</p>
                         )}
 
-                        <div className="button-group">
-                            <button
-                                className="submit-btn"
-                                onClick={handleFetchSolvedac}
-                                disabled={fetchingStats || !bojHandle.trim()}
-                            >
-                                {fetchingStats ? '가져오는 중...' : '정보 가져오기'}
-                            </button>
+                        {solvedacData && (
+                            <div className="stats-preview" style={{
+                                padding: '16px',
+                                background: 'rgba(74, 222, 128, 0.1)',
+                                border: '1px solid #4ade80',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem'
+                            }}>
+                                <strong>✅ 연동 성공!</strong>
+                                <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
+                                    <li>핸들: {solvedacData.handle}</li>
+                                    <li>티어: {solvedacData.tier}</li>
+                                    <li>해결: {solvedacData.solvedCount}문제</li>
+                                </ul>
+                                <p style={{ marginTop: '8px', fontSize: '0.8rem', color: '#666' }}>
+                                    {solvedacData.summary.substring(0, 100)}...
+                                </p>
+                            </div>
+                        )}
 
-                            <button
-                                className="back-btn"
-                                onClick={() => {
-                                    setSolvedacMode('choice');
-                                    setFetchError('');
-                                }}
-                                disabled={fetchingStats}
-                            >
-                                뒤로
-                            </button>
+                        <div className="button-group">
+                            {!solvedacData ? (
+                                <>
+                                    <button
+                                        className="submit-btn"
+                                        onClick={handleFetchSolvedac}
+                                        disabled={fetchingStats || !bojHandle.trim()}
+                                    >
+                                        {fetchingStats ? '가져오는 중...' : '정보 가져오기'}
+                                    </button>
+
+                                    <button
+                                        className="back-btn"
+                                        onClick={() => {
+                                            setSolvedacMode('choice');
+                                            setFetchError('');
+                                        }}
+                                        disabled={fetchingStats}
+                                    >
+                                        뒤로
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    className="submit-btn"
+                                    onClick={() => proceedToAnalysis(solvedacData, solvedacData.summary)}
+                                >
+                                    계속하기 (분석 시작)
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
