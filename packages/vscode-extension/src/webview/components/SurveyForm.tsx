@@ -250,7 +250,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                             className="choice-btn primary"
                             onClick={() => setSolvedacMode('connect')}
                         >
-                            <strong>BOJ 핸들 연결</strong>
+                            <strong>BOJ 아이디 연결</strong>
                             <span className="subtitle">Solved.ac에서 자동으로 통계 가져오기</span>
                         </button>
 
