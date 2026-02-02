@@ -3,6 +3,14 @@ import * as path from 'path';
 import { glob } from 'glob';
 import { promises as fs } from 'fs';
 import { VectorStore, Document } from './VectorStore';
+import { SolvedAcTagFetcher, ProblemMetadata } from './SolvedAcTagFetcher';
+
+interface BOJTagsData {
+    version: string;
+    generatedAt: string;
+    problemCount: number;
+    problems: ProblemMetadata[];
+}
 
 export interface FileMetadata {
     filePath: string;
@@ -349,5 +357,187 @@ export class IngestionService {
         console.log('[IngestionService] File watcher set up');
 
         return watcher;
+    }
+
+    /**
+     * Ingest problem tags from solved.ac API
+     * @param limit - Maximum number of problems to fetch
+     * @returns Number of problems ingested
+     */
+    public async ingestProblemTags(limit: number = 5000): Promise<number> {
+        try {
+            console.log(`[IngestionService] Starting to fetch and ingest up to ${limit} problem tags...`);
+
+            const fetcher = SolvedAcTagFetcher.getInstance();
+            const problems = await fetcher.fetchProblems(limit);
+
+            console.log(`[IngestionService] Fetched ${problems.length} problems, now ingesting...`);
+
+            let ingestedCount = 0;
+            const batchSize = 50; // Process in batches for better progress tracking
+
+            for (let i = 0; i < problems.length; i += batchSize) {
+                const batch = problems.slice(i, Math.min(i + batchSize, problems.length));
+
+                try {
+                    await this.ingestProblemBatch(batch);
+                    ingestedCount += batch.length;
+
+                    console.log(`[IngestionService] Ingested ${ingestedCount}/${problems.length} problems...`);
+                } catch (error) {
+                    console.error(`[IngestionService] Failed to ingest batch starting at ${i}:`, error);
+                    // Continue with next batch
+                }
+            }
+
+            console.log(`[IngestionService] Successfully ingested ${ingestedCount} problem tags`);
+            return ingestedCount;
+        } catch (error) {
+            console.error('[IngestionService] Problem tag ingestion failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Ingest a batch of problems
+     * @param problems - Array of problem metadata
+     */
+    private async ingestProblemBatch(problems: ProblemMetadata[]): Promise<void> {
+        const documents: Document[] = [];
+
+        for (const problem of problems) {
+            const document = this.createProblemDocument(problem);
+            documents.push(document);
+        }
+
+        await this.vectorStore.addDocuments(documents);
+    }
+
+    /**
+     * Create a document from problem metadata
+     * @param problem - Problem metadata from solved.ac
+     * @returns Document for vector store
+     */
+    private createProblemDocument(problem: ProblemMetadata): Document {
+        const difficultyName = SolvedAcTagFetcher.getDifficultyName(problem.difficulty);
+
+        // Create a rich text representation for embedding
+        const content = `
+Baekjoon Problem ${problem.problemId}: ${problem.titleKo}
+Difficulty: ${difficultyName} (Level ${problem.difficulty})
+Tags: ${problem.tags.join(', ')}
+
+Recommended Approach:
+${problem.recommendedApproach}
+
+Algorithm Categories: ${problem.tags.join(', ')}
+`.trim();
+
+        return {
+            content,
+            metadata: {
+                problemId: problem.problemId.toString(),
+                title: problem.titleKo,
+                difficulty: problem.difficulty,
+                difficultyName,
+                tags: problem.tags,
+                recommendedApproach: problem.recommendedApproach,
+                type: 'boj_tag',
+                source: 'solved.ac',
+                ingestedAt: new Date().toISOString(),
+            },
+        };
+    }
+
+    /**
+     * Ingest specific problem IDs
+     * @param problemIds - Array of problem IDs to fetch and ingest
+     * @returns Number of problems ingested
+     */
+    public async ingestSpecificProblems(problemIds: number[]): Promise<number> {
+        try {
+            console.log(`[IngestionService] Fetching ${problemIds.length} specific problems...`);
+
+            const fetcher = SolvedAcTagFetcher.getInstance();
+            const problems = await fetcher.fetchSpecificProblems(problemIds);
+
+            await this.ingestProblemBatch(problems);
+
+            console.log(`[IngestionService] Successfully ingested ${problems.length} specific problems`);
+            return problems.length;
+        } catch (error) {
+            console.error('[IngestionService] Specific problem ingestion failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check if problem tags need to be initialized
+     * @returns True if database is empty or has very few tag documents
+     */
+    public async shouldInitializeTags(): Promise<boolean> {
+        try {
+            const stats = await this.vectorStore.getStats();
+
+            // Check if we have any boj_tag documents
+            // This is a simple heuristic - if we have less than 100 documents,
+            // we probably need to initialize
+            return stats.documentCount < 100;
+        } catch (error) {
+            console.error('[IngestionService] Failed to check tag initialization status:', error);
+            return true; // Default to initializing if we can't check
+        }
+    }
+
+    /**
+     * Load and ingest BOJ problem tags from bundled JSON file
+     * This is the fast, offline method that runs on first launch
+     * @param extensionPath - The extension's installation path
+     * @returns Number of problems ingested
+     */
+    public async ingestFromBundledTags(extensionPath: string): Promise<number> {
+        try {
+            console.log('[IngestionService] Loading pre-fetched BOJ tags from bundle...');
+
+            // Load the bundled JSON file
+            const dataPath = path.join(extensionPath, 'data', 'boj-problem-tags.json');
+
+            let tagsData: BOJTagsData;
+            try {
+                const fileContent = await fs.readFile(dataPath, 'utf-8');
+                tagsData = JSON.parse(fileContent);
+            } catch (error) {
+                console.error('[IngestionService] Failed to load bundled tags:', error);
+                throw new Error('Bundled tags file not found. Run "npm run init-boj-tags" to generate it.');
+            }
+
+            console.log(`[IngestionService] Loaded ${tagsData.problemCount} problems (generated ${new Date(tagsData.generatedAt).toLocaleString()})`);
+
+            // Ingest in batches
+            let ingestedCount = 0;
+            const batchSize = 100;
+
+            for (let i = 0; i < tagsData.problems.length; i += batchSize) {
+                const batch = tagsData.problems.slice(i, Math.min(i + batchSize, tagsData.problems.length));
+
+                try {
+                    await this.ingestProblemBatch(batch);
+                    ingestedCount += batch.length;
+
+                    if (ingestedCount % 500 === 0) {
+                        console.log(`[IngestionService] Ingested ${ingestedCount}/${tagsData.problemCount} problems...`);
+                    }
+                } catch (error) {
+                    console.error(`[IngestionService] Failed to ingest batch starting at ${i}:`, error);
+                    // Continue with next batch
+                }
+            }
+
+            console.log(`[IngestionService] Successfully ingested ${ingestedCount} problem tags from bundle`);
+            return ingestedCount;
+        } catch (error) {
+            console.error('[IngestionService] Failed to ingest from bundled tags:', error);
+            throw error;
+        }
     }
 }

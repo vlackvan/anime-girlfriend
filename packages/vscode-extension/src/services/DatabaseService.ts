@@ -277,4 +277,74 @@ export class DatabaseService {
         const config = vscode.workspace.getConfiguration('anime-girlfriend');
         return config.get<number>('rag.maxResults', 5);
     }
+
+    /**
+     * Search documents by metadata with similarity ordering
+     * @param metadataFilter - Metadata key-value pairs to filter by
+     * @param queryEmbedding - Optional embedding for similarity ordering
+     * @param limit - Maximum number of results
+     * @returns Array of matching documents
+     */
+    public async searchByMetadata(
+        metadataFilter: Record<string, any>,
+        queryEmbedding?: number[],
+        limit: number = 5
+    ): Promise<Array<{ id: string; content: string; metadata: any; similarity: number }>> {
+        // Build WHERE clause for metadata filters
+        const conditions: string[] = [];
+        const params: any[] = [];
+        let paramIndex = 1;
+
+        for (const [key, value] of Object.entries(metadataFilter)) {
+            conditions.push(`d.metadata->>'${key}' = $${paramIndex}`);
+            params.push(value);
+            paramIndex++;
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        // If we have an embedding, order by similarity; otherwise just return matches
+        let query: string;
+        if (queryEmbedding) {
+            const vectorString = `[${queryEmbedding.join(',')}]`;
+            params.unshift(vectorString); // Add as first parameter
+            // Adjust param indices in WHERE clause
+            const adjustedWhereClause = whereClause.replace(/\$(\d+)/g, (match, num) => `$${parseInt(num) + 1}`);
+
+            query = `
+                SELECT
+                    d.id,
+                    d.content,
+                    d.metadata,
+                    1 - (e.embedding <=> $1::vector) as similarity
+                FROM embeddings e
+                JOIN documents d ON e.document_id = d.id
+                ${adjustedWhereClause}
+                ORDER BY e.embedding <=> $1::vector
+                LIMIT $${params.length + 1}
+            `;
+            params.push(limit);
+        } else {
+            query = `
+                SELECT
+                    d.id,
+                    d.content,
+                    d.metadata,
+                    0 as similarity
+                FROM documents d
+                ${whereClause}
+                LIMIT $${params.length + 1}
+            `;
+            params.push(limit);
+        }
+
+        const result = await this.query<{
+            id: string;
+            content: string;
+            metadata: any;
+            similarity: number;
+        }>(query, params);
+
+        return result.rows;
+    }
 }

@@ -88,12 +88,27 @@ export class ChatGPTService {
 
             if (problemId) {
                 // Get BOJ-specific context
-                const { formattedContext } = await this.ragService.retrieveBOJContext(problemId);
+                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
+                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
                 ragContext = formattedContext;
+                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+                if (documents.length > 0) {
+                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
+                }
             } else if (this.ragService.isEnabled()) {
                 // Get general relevant context
-                const { formattedContext } = await this.ragService.retrieveContext(userMessage);
+                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
                 ragContext = formattedContext;
+                if (documents.length > 0) {
+                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
+                }
+            }
+
+            if (ragContext) {
+                console.log(`[ChatGPTService] ✅ RAG context injected (${ragContext.length} characters)`);
+            } else {
+                console.log(`[ChatGPTService] ℹ️  No RAG context retrieved for this query`);
             }
         } catch (error) {
             console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
@@ -227,9 +242,10 @@ export class ChatGPTService {
         // This ensures the model treats this as a fresh turn to respond to.
         const triggerMessage = {
             role: 'user',
-            content: `[SYSTEM EVENT] User pressed the 'Heart Button'. 
+            content: `[SYSTEM EVENT] User pressed the 'Heart Button'.
 ACTION REQUIRED: Disengage "Tough Love". Engage "Decre" (Sweet) Mode.
-OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.`
+OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.
+LANGUAGE: Respond in Korean (한국어) ONLY.`
         };
 
         const messages = [
@@ -379,6 +395,7 @@ ${sharedMemories}
             const ragSection = ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${ragContext}\n` : '';
 
             return `
+
 ### CHARACTER PROFILE
 ${characterSPC}
 
@@ -410,10 +427,11 @@ Contrast his present chaos with our future stability: Focus on the growth of you
 
 
 ### CHAT RULES
-1.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
-2.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
-3.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
-4.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
+1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
+2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
+3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
+4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
+5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
 //
 ### USER ANALYSIS & INTERACTION DYNAMICS
 (The User's Psychology - What you know about him)

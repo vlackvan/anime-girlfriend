@@ -119,31 +119,82 @@ export class RAGService {
             return '';
         }
 
-        const parts: string[] = [
-            '## Retrieved Context from Past Solutions and Conversations:',
-            '',
-        ];
+        // Separate documents by type
+        const tagDocs = documents.filter(d => d.metadata.type === 'boj_tag');
+        const solutionDocs = documents.filter(d => d.metadata.type === 'solution');
+        const conversationDocs = documents.filter(d => d.metadata.type === 'conversation');
 
-        documents.forEach((doc, index) => {
-            parts.push(`### Context ${index + 1} (Relevance: ${(doc.similarity * 100).toFixed(1)}%)`);
+        const parts: string[] = [];
 
-            // Add metadata if available
-            if (doc.metadata.problemId) {
+        // Format BOJ tag documents (problem metadata and approaches)
+        if (tagDocs.length > 0) {
+            parts.push('## Relevant BOJ Problems (From solved.ac):');
+            parts.push('');
+
+            tagDocs.forEach((doc, index) => {
+                parts.push(`### Problem ${index + 1}: ${doc.metadata.title || `Problem ${doc.metadata.problemId}`}`);
                 parts.push(`**Problem ID:** ${doc.metadata.problemId}`);
-            }
-            if (doc.metadata.language) {
-                parts.push(`**Language:** ${doc.metadata.language}`);
-            }
-            if (doc.metadata.fileName) {
-                parts.push(`**File:** ${doc.metadata.fileName}`);
-            }
 
+                if (doc.metadata.difficultyName) {
+                    parts.push(`**Difficulty:** ${doc.metadata.difficultyName}`);
+                }
+
+                if (doc.metadata.tags && Array.isArray(doc.metadata.tags)) {
+                    parts.push(`**Tags:** ${doc.metadata.tags.join(', ')}`);
+                }
+
+                if (doc.metadata.recommendedApproach) {
+                    parts.push('');
+                    parts.push(`**Recommended Approach:**`);
+                    parts.push(doc.metadata.recommendedApproach);
+                }
+
+                parts.push('');
+                parts.push('---');
+                parts.push('');
+            });
+        }
+
+        // Format solution documents (user's actual code)
+        if (solutionDocs.length > 0) {
+            parts.push('## Your Past Solutions:');
             parts.push('');
-            parts.push(doc.content);
+
+            solutionDocs.forEach((doc, index) => {
+                parts.push(`### Solution ${index + 1}`);
+
+                if (doc.metadata.problemId) {
+                    parts.push(`**Problem ID:** ${doc.metadata.problemId}`);
+                }
+                if (doc.metadata.language) {
+                    parts.push(`**Language:** ${doc.metadata.language}`);
+                }
+                if (doc.metadata.fileName) {
+                    parts.push(`**File:** ${doc.metadata.fileName}`);
+                }
+
+                parts.push('');
+                parts.push(doc.content);
+                parts.push('');
+                parts.push('---');
+                parts.push('');
+            });
+        }
+
+        // Format conversation documents
+        if (conversationDocs.length > 0) {
+            parts.push('## Relevant Past Conversations:');
             parts.push('');
-            parts.push('---');
-            parts.push('');
-        });
+
+            conversationDocs.forEach((doc, index) => {
+                parts.push(`### Conversation ${index + 1}`);
+                parts.push('');
+                parts.push(doc.content);
+                parts.push('');
+                parts.push('---');
+                parts.push('');
+            });
+        }
 
         return parts.join('\n');
     }
@@ -159,30 +210,66 @@ export class RAGService {
             return '';
         }
 
-        const parts: string[] = [
-            `## Your Previous Solutions for BOJ Problem ${problemId}:`,
-            '',
-            `I found ${documents.length} previous solution(s) you worked on for this problem:`,
-            '',
-        ];
+        // Separate by type
+        const tagDocs = documents.filter(d => d.metadata.type === 'boj_tag');
+        const solutionDocs = documents.filter(d => d.metadata.type === 'solution');
 
-        documents.forEach((doc, index) => {
-            parts.push(`### Solution ${index + 1}`);
+        const parts: string[] = [];
 
-            if (doc.metadata.language) {
-                parts.push(`**Language:** ${doc.metadata.language}`);
+        // Format problem metadata and approach (if available)
+        if (tagDocs.length > 0) {
+            const tagDoc = tagDocs[0]; // Use the first (most relevant) tag document
+
+            parts.push(`## BOJ Problem ${problemId}: ${tagDoc.metadata.title || 'Problem Info'}`);
+            parts.push('');
+
+            if (tagDoc.metadata.difficultyName) {
+                parts.push(`**Difficulty:** ${tagDoc.metadata.difficultyName} (Level ${tagDoc.metadata.difficulty})`);
             }
-            if (doc.metadata.lastModified) {
-                const date = new Date(doc.metadata.lastModified);
-                parts.push(`**Last Modified:** ${date.toLocaleDateString()}`);
+
+            if (tagDoc.metadata.tags && Array.isArray(tagDoc.metadata.tags)) {
+                parts.push(`**Algorithm Tags:** ${tagDoc.metadata.tags.join(', ')}`);
             }
 
             parts.push('');
-            parts.push(doc.content);
+            parts.push('**Recommended Approach:**');
+            parts.push(tagDoc.metadata.recommendedApproach || 'Analyze the problem carefully and choose appropriate algorithms.');
             parts.push('');
             parts.push('---');
             parts.push('');
-        });
+        }
+
+        // Format user's actual solutions (if they exist)
+        if (solutionDocs.length > 0) {
+            parts.push(`## Your Previous Solutions for Problem ${problemId}:`);
+            parts.push('');
+            parts.push(`I found ${solutionDocs.length} solution(s) you worked on:`);
+            parts.push('');
+
+            solutionDocs.forEach((doc, index) => {
+                parts.push(`### Solution ${index + 1}`);
+
+                if (doc.metadata.language) {
+                    parts.push(`**Language:** ${doc.metadata.language}`);
+                }
+                if (doc.metadata.lastModified) {
+                    const date = new Date(doc.metadata.lastModified);
+                    parts.push(`**Last Modified:** ${date.toLocaleDateString()}`);
+                }
+
+                parts.push('');
+                parts.push(doc.content);
+                parts.push('');
+                parts.push('---');
+                parts.push('');
+            });
+        } else if (tagDocs.length === 0) {
+            // No tags or solutions found
+            parts.push(`## BOJ Problem ${problemId}`);
+            parts.push('');
+            parts.push('No information found for this problem in the database.');
+            parts.push('');
+        }
 
         return parts.join('\n');
     }

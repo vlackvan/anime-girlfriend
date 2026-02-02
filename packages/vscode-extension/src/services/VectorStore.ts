@@ -124,7 +124,7 @@ export class VectorStore {
     public async similaritySearch(
         query: string,
         k?: number,
-        minSimilarity: number = 0.5
+        minSimilarity: number = 0.3
     ): Promise<SearchResult[]> {
         if (!this.isInitialized) {
             await this.initialize();
@@ -165,7 +165,28 @@ export class VectorStore {
         metadataFilter: Record<string, any>,
         k?: number
     ): Promise<SearchResult[]> {
-        const results = await this.similaritySearch(query, k);
+        if (!this.isInitialized) {
+            await this.initialize();
+        }
+
+        // If we have a problemId filter, do a direct metadata search first
+        // This is more reliable than similarity search for specific problem lookups
+        if (metadataFilter.problemId) {
+            try {
+                const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+                const results = await this.dbService.searchByMetadata(metadataFilter, queryEmbedding, k ?? 5);
+
+                if (results.length > 0) {
+                    console.log(`[VectorStore] Found ${results.length} documents via metadata filter`);
+                    return results;
+                }
+            } catch (error) {
+                console.error('[VectorStore] Metadata search failed, falling back to similarity search:', error);
+            }
+        }
+
+        // Fallback to similarity search with filtering
+        const results = await this.similaritySearch(query, k, 0.0); // Use 0.0 threshold for filtered searches
 
         // Filter results based on metadata
         return results.filter(result => {

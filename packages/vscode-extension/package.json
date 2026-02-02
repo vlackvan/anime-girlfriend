@@ -42,6 +42,11 @@
                 "category": "Anime Girlfriend"
             },
             {
+                "command": "anime-girlfriend.ingestProblemTags",
+                "title": "RAG: Fetch BOJ Problem Tags from solved.ac",
+                "category": "Anime Girlfriend"
+            },
+            {
                 "command": "anime-girlfriend.clearMemory",
                 "title": "RAG: Clear Memory",
                 "category": "Anime Girlfriend"
@@ -49,6 +54,11 @@
             {
                 "command": "anime-girlfriend.ragStats",
                 "title": "RAG: Show Statistics",
+                "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.testRAG",
+                "title": "RAG: Test Query (Debug)",
                 "category": "Anime Girlfriend"
             }
         ],
@@ -135,7 +145,8 @@
         "vscode:prepublish": "npm run compile",
         "compile": "node esbuild.js",
         "watch": "node esbuild.js --watch",
-        "package": "vsce package"
+        "package": "vsce package",
+        "init-boj-tags": "node scripts/fetch-boj-tags.js"
     },
     "devDependencies": {
         "@types/node": "^18.0.0",

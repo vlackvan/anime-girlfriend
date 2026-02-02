@@ -32,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const ingestionService = IngestionService.getInstance();
 
     // Initialize RAG system
-    initializeRAG(ragService, ingestionService);
+    initializeRAG(ragService, ingestionService, context.extensionPath);
 
     // Initialize Chat Panel
     const chatPanel = new ChatPanel(
@@ -119,6 +119,71 @@ export async function activate(context: vscode.ExtensionContext) {
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to get RAG stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.testRAG', async () => {
+            const query = await vscode.window.showInputBox({
+                prompt: 'Enter a test query (e.g., "1149번 어떻게 풀어?" or "다이나믹 프로그래밍")',
+                placeHolder: '1149번 어떻게 풀어?'
+            });
+
+            if (!query) {
+                return;
+            }
+
+            try {
+                // Detect BOJ problem
+                const bojPattern = /(\d{4,5})(?:번|problem)/i;
+                const match = query.match(bojPattern);
+
+                let result;
+                if (match) {
+                    const problemId = match[1];
+                    result = await ragService.retrieveBOJContext(problemId);
+                    vscode.window.showInformationMessage(`Found ${result.documents.length} documents for BOJ ${problemId}`);
+                } else {
+                    result = await ragService.retrieveContext(query);
+                    vscode.window.showInformationMessage(`Found ${result.documents.length} relevant documents`);
+                }
+
+                // Show formatted context in a new document
+                const doc = await vscode.workspace.openTextDocument({
+                    content: `# RAG Test Results for: "${query}"\n\n` +
+                             `Found ${result.documents.length} document(s)\n\n` +
+                             `## Document Types:\n${result.documents.map(d => `- ${d.metadata.type} (similarity: ${(d.similarity * 100).toFixed(1)}%)`).join('\n')}\n\n` +
+                             `## Formatted Context (This is what gets sent to ChatGPT):\n\n${result.formattedContext || '(empty)'}`,
+                    language: 'markdown'
+                });
+                await vscode.window.showTextDocument(doc);
+            } catch (error) {
+                vscode.window.showErrorMessage(`RAG test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.ingestProblemTags', async () => {
+            const limitInput = await vscode.window.showInputBox({
+                prompt: 'How many problems to fetch? (default: 5000, max: 30000)',
+                value: '5000',
+                validateInput: (value) => {
+                    const num = parseInt(value);
+                    if (isNaN(num) || num < 1 || num > 30000) {
+                        return 'Please enter a number between 1 and 30000';
+                    }
+                    return null;
+                }
+            });
+
+            if (!limitInput) {
+                return; // User cancelled
+            }
+
+            const limit = parseInt(limitInput);
+
+            try {
+                vscode.window.showInformationMessage(`Starting to fetch ${limit} problem tags from solved.ac...`);
+                const count = await ingestionService.ingestProblemTags(limit);
+                vscode.window.showInformationMessage(`Successfully ingested ${count} BOJ problem tags into RAG memory!`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to ingest problem tags: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
         })
     );
 
@@ -139,7 +204,7 @@ export function deactivate() {
 /**
  * Initialize RAG system asynchronously
  */
-async function initializeRAG(ragService: RAGService, ingestionService: IngestionService): Promise<void> {
+async function initializeRAG(ragService: RAGService, ingestionService: IngestionService, extensionPath: string): Promise<void> {
     try {
         console.log('[Anime Girlfriend] Initializing RAG system...');
 
@@ -149,8 +214,29 @@ async function initializeRAG(ragService: RAGService, ingestionService: Ingestion
         // Set up file watcher for auto-ingestion
         ingestionService.setupFileWatcher();
 
-        // Optionally auto-ingest on startup (can be disabled via setting)
-        const autoIngest = vscode.workspace.getConfiguration('anime-girlfriend').get('rag.autoIngestOnStartup', false);
+        // Check if we need to populate the database with problem tags
+        const needsInit = await ingestionService.shouldInitializeTags();
+
+        if (needsInit) {
+            console.log('[Anime Girlfriend] Database is empty. Loading bundled BOJ tags...');
+            vscode.window.showInformationMessage(
+                'First-time setup: Loading BOJ problem tags... This will take a few seconds.'
+            );
+
+            // Load from bundled JSON (fast, no network calls)
+            const count = await ingestionService.ingestFromBundledTags(extensionPath);
+
+            console.log(`[Anime Girlfriend] Loaded ${count} problem tags from bundle`);
+            vscode.window.showInformationMessage(
+                `RAG system initialized with ${count} BOJ problems! You're all set.`
+            );
+        } else {
+            console.log('[Anime Girlfriend] Database already has data, skipping tag initialization');
+        }
+
+        // Optionally auto-ingest local solution files on startup (disabled by default)
+        const config = vscode.workspace.getConfiguration('anime-girlfriend');
+        const autoIngest = config.get('rag.autoIngestOnStartup', false);
 
         if (autoIngest) {
             console.log('[Anime Girlfriend] Auto-ingesting workspace solutions...');

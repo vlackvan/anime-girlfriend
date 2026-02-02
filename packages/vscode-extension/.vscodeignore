@@ -1,0 +1,25 @@
+# Source files
+src/**
+*.ts
+tsconfig.json
+esbuild.js
+
+# Scripts (except data)
+scripts/**
+
+# Tests
+test/**
+test-*.js
+inspect-db.js
+
+# Documentation
+*.md
+!README.md
+
+# Build files
+node_modules/**
+.vscode/**
+.gitignore
+
+# Keep the bundled data
+!data/**

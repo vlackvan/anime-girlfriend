@@ -5,7 +5,15 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(npm run compile:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker exec:*)",
+      "Bash(node test-rag.js:*)",
+      "Bash(node inspect-db.js:*)",
+      "Bash(node -e:*)",
+      "Bash(node test-similarity.js:*)",
+      "Bash(node scripts/fetch-boj-tags.js:*)"
     ]
   }
 }
