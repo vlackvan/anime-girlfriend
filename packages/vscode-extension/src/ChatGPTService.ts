@@ -185,7 +185,7 @@ export class ChatGPTService {
             role: 'user',
             content: `[SYSTEM EVENT] User pressed the 'Heart Button'. 
 ACTION REQUIRED: Disengage "Tough Love". Engage "Decre" (Sweet) Mode.
-OUTPUT: One genuine, romantic, affectionate sentence. No greetings.`
+OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.`
         };
 
         const messages = [

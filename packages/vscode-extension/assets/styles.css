@@ -506,13 +506,6 @@ body {
     cursor: not-allowed;
 }
 
-/* Mic Button */
-.input-area.new-layout .mic-btn.listening {
-    color: #ef4444;
-    animation: pulse 1.5s infinite;
-    background: rgba(239, 68, 68, 0.1);
-}
-
 /* Image Button */
 .input-area.new-layout .image-btn {
     cursor: pointer;
@@ -963,5 +956,4 @@ body {
 
 .demographics-buttons {
     margin-top: 8px;
-
 }

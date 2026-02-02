@@ -42,50 +42,11 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const [isListening, setIsListening] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    // Voice Input Handler
-    const toggleVoiceInput = () => {
-        if (!('webkitSpeechRecognition' in window)) {
-            // Fallback or alert if not supported
-            alert('이 브라우저에서는 음성 인식을 지원하지 않습니다.');
-            return;
-        }
-
-        if (isListening) {
-            setIsListening(false);
-            // Stop logic is handled by the recognition instance if we kept it in ref, 
-            // but for simplicity let's assume valid browser support handling
-            return;
-        }
-
-        setIsListening(true);
-        const recognition = new (window as any).webkitSpeechRecognition();
-        recognition.lang = 'ko-KR';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
-            setIsListening(false);
-        };
-
-        recognition.onerror = () => {
-            setIsListening(false);
-        };
-
-        recognition.onend = () => {
-            setIsListening(false);
-        };
-
-        recognition.start();
     };
 
     // Image Input Handler
@@ -289,18 +250,6 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
             )}
             <div className="input-area new-layout">
                 <div className="left-controls">
-                    <button
-                        className={`icon-btn mic-btn ${isListening ? 'listening' : ''}`}
-                        onClick={toggleVoiceInput}
-                        title="음성 입력"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                        </svg>
-                    </button>
                     <label className="icon-btn image-btn" title="사진 첨부">
                         <input
                             type="file"
