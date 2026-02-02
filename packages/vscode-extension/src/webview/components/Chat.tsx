@@ -140,7 +140,7 @@ export const Chat: React.FC<ChatProps> = ({ character, profile }) => {
     return (
         <div className="chat">
             <div className="chat-header">
-                <div className="chat-title">ANIME GIRLFRIEND: CHAT</div>
+                <div className="chat-title">🍑MomoTalk</div>
                 <div className="chat-header-info">
                     <img
                         src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}

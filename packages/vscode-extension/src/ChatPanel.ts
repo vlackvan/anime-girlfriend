@@ -167,10 +167,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             vscode.Uri.joinPath(this.extensionUri, 'assets', 'styles.css')
         );
         const aruImageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'aru.webp')
+            vscode.Uri.joinPath(this.extensionUri, 'assets', 'aru.png')
         );
         const chihiroImageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.jpg')
+            vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.png')
         );
 
         return `<!DOCTYPE html>
