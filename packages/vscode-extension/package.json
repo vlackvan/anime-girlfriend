@@ -35,6 +35,21 @@
                 "command": "anime-girlfriend.debugProfile",
                 "title": "Debug: Show Stored Profile",
                 "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.ingestSolutions",
+                "title": "RAG: Ingest BOJ Solutions",
+                "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.clearMemory",
+                "title": "RAG: Clear Memory",
+                "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.ragStats",
+                "title": "RAG: Show Statistics",
+                "category": "Anime Girlfriend"
             }
         ],
         "viewsContainers": {
@@ -72,6 +87,46 @@
                         "gpt-3.5-turbo"
                     ],
                     "description": "OpenAI model for chat"
+                },
+                "anime-girlfriend.database.host": {
+                    "type": "string",
+                    "default": "localhost",
+                    "description": "PostgreSQL database host for RAG system"
+                },
+                "anime-girlfriend.database.port": {
+                    "type": "number",
+                    "default": 5432,
+                    "description": "PostgreSQL database port"
+                },
+                "anime-girlfriend.database.name": {
+                    "type": "string",
+                    "default": "anime_girlfriend_rag",
+                    "description": "PostgreSQL database name"
+                },
+                "anime-girlfriend.database.user": {
+                    "type": "string",
+                    "default": "postgres",
+                    "description": "PostgreSQL database user"
+                },
+                "anime-girlfriend.database.password": {
+                    "type": "string",
+                    "default": "postgres",
+                    "description": "PostgreSQL database password"
+                },
+                "anime-girlfriend.rag.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable RAG (Retrieval-Augmented Generation) for enhanced memory"
+                },
+                "anime-girlfriend.rag.maxResults": {
+                    "type": "number",
+                    "default": 5,
+                    "description": "Maximum number of relevant documents to retrieve for context"
+                },
+                "anime-girlfriend.rag.autoIngestOnStartup": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically ingest BOJ solutions on extension startup"
                 }
             }
         }
@@ -85,6 +140,7 @@
     "devDependencies": {
         "@types/node": "^18.0.0",
         "@types/node-fetch": "^2.6.13",
+        "@types/pg": "^8.10.0",
         "@types/react": "^18.2.0",
         "@types/react-dom": "^18.2.0",
         "@types/vscode": "^1.74.0",
@@ -92,7 +148,10 @@
         "typescript": "^5.0.0"
     },
     "dependencies": {
+        "@xenova/transformers": "^2.10.0",
+        "glob": "^10.3.0",
         "node-fetch": "^2.7.0",
+        "pg": "^8.11.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
     }
