@@ -171,6 +171,9 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
         });
 
         setInputValue('');
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+        }
         setSelectedImage(null);
         setIsLoading(true);
     };
@@ -186,110 +189,117 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
         <div className="chat-wrapper">
             <div className="chat">
                 <div className="chat-header">
-                <div className="chat-title">🍑MomoTalk</div>
-                <div className="chat-header-info">
-                    <img
-                        src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
-                        alt={character}
-                        className="avatar"
-                    />
-                    <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                    <div className="status-indicator">
-                        <span className="status-dot"></span>
-                        <span className="status-text">온라인</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="messages">
-                {messages.map((msg) => (
-                    <div key={msg.id} className={`message ${msg.author}`}>
-                        {msg.author === 'bot' && (
-                            <>
-                                <img
-                                    src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
-                                    alt={character}
-                                    className="avatar"
-                                />
-                                <div className="message-content">
-                                    <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                                    <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
-                                        {msg.content || (msg.isStreaming && '...')}
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                        {msg.author === 'user' && (
-                            <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
-                                {msg.content}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {isLoading && !streamingMessageId && (
-                    <div className="message bot">
+                    <div className="chat-title">🍑MomoTalk</div>
+                    <div className="chat-header-info">
                         <img
                             src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
                             alt={character}
                             className="avatar"
                         />
-                        <div className="message-content">
-                            <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                            <div className="bubble typing">
-                                <span>.</span><span>.</span><span>.</span>
-                            </div>
+                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                        <div className="status-indicator">
+                            <span className="status-dot"></span>
+                            <span className="status-text">온라인</span>
                         </div>
                     </div>
+                </div>
+
+                <div className="messages">
+                    {messages.map((msg) => (
+                        <div key={msg.id} className={`message ${msg.author}`}>
+                            {msg.author === 'bot' && (
+                                <>
+                                    <img
+                                        src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                        alt={character}
+                                        className="avatar"
+                                    />
+                                    <div className="message-content">
+                                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                            {msg.content || (msg.isStreaming && '...')}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            {msg.author === 'user' && (
+                                <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                    {msg.content}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {isLoading && !streamingMessageId && (
+                        <div className="message bot">
+                            <img
+                                src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                alt={character}
+                                className="avatar"
+                            />
+                            <div className="message-content">
+                                <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                <div className="bubble typing">
+                                    <span>.</span><span>.</span><span>.</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {selectedImage && (
+                    <div className="image-preview">
+                        <img src={selectedImage} alt="Selected" />
+                        <button className="remove-image" onClick={() => setSelectedImage(null)}>×</button>
+                    </div>
                 )}
-                <div ref={messagesEndRef} />
-            </div>
+                <div className="input-area new-layout">
+                    <div className="left-controls">
+                        <label className="icon-btn image-btn" title="사진 첨부">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageSelect}
+                                style={{ display: 'none' }}
+                            />
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                        </label>
+                    </div>
 
-            {selectedImage && (
-                <div className="image-preview">
-                    <img src={selectedImage} alt="Selected" />
-                    <button className="remove-image" onClick={() => setSelectedImage(null)}>×</button>
-                </div>
-            )}
-            <div className="input-area new-layout">
-                <div className="left-controls">
-                    <label className="icon-btn image-btn" title="사진 첨부">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageSelect}
-                            style={{ display: 'none' }}
-                        />
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <polyline points="21 15 16 10 5 21"></polyline>
-                        </svg>
-                    </label>
-                </div>
-
-                <textarea
-                    ref={textareaRef}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="메시지를 입력하세요..."
-                    rows={1}
-                    disabled={isLoading}
-                />
-
-                <div className="right-controls">
-                    <button
-                        className="icon-btn heart-btn"
-                        onClick={handleHeartClick}
+                    <textarea
+                        ref={textareaRef}
+                        value={inputValue}
+                        onChange={(e) => {
+                            setInputValue(e.target.value);
+                            // Auto-adjust height
+                            if (textareaRef.current) {
+                                textareaRef.current.style.height = 'auto';
+                                textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+                            }
+                        }}
+                        onKeyPress={handleKeyPress}
+                        placeholder="메시지를 입력하세요..."
+                        rows={1}
                         disabled={isLoading}
-                        title="사랑의 메시지 요청"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                        </svg>
-                    </button>
+                    />
+
+                    <div className="right-controls">
+                        <button
+                            className="icon-btn heart-btn"
+                            onClick={handleHeartClick}
+                            disabled={isLoading}
+                            title="사랑의 메시지 요청"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-            </div>
             </div>
             <BongoCat />
         </div>

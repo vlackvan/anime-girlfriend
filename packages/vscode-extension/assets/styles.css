@@ -618,6 +618,21 @@ body {
     box-shadow: none;
     resize: none;
     min-height: 40px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.input-area.new-layout textarea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.input-area.new-layout textarea::-webkit-scrollbar-thumb {
+    background: rgba(255, 107, 157, 0.5);
+    border-radius: 10px;
+}
+
+.input-area.new-layout textarea::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .input-area.new-layout textarea:focus {
