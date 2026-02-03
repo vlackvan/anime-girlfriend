@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Character, UserProfile, Demographics, UserEssays } from '../personality/types';
+import { OnboardingLayout } from './OnboardingLayout';
 
 interface SurveyFormProps {
     character: Character;
@@ -189,8 +190,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
 
     if (phase === 'essay') {
         return (
-            <div className="survey-form">
-                <h2>당신에 대해 알려주세요 (1/2)</h2>
+            <OnboardingLayout title="당신에 대해 알려주세요 (1/2)">
                 <p className="subtitle">
                     더 나은 코칭을 위해 당신의 평소 습관과 생각을 솔직하게 적어주세요.
                 </p>
@@ -237,7 +237,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                 >
                     <span>다음: 알고리즘 실력 연동 →</span>
                 </button>
-            </div>
+            </OnboardingLayout>
         );
     }
 
@@ -245,8 +245,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
     if (phase === 'solvedac') {
         if (solvedacMode === 'choice') {
             return (
-                <div className="survey-form">
-                    <h2>알고리즘 실력 연동 (2/2)</h2>
+                <OnboardingLayout title="알고리즘 실력 연동 (2/2)">
                     <p className="subtitle">
                         백준 온라인 저지 경험을 연결하면 더 정확한 성격 분석이 가능합니다.
                     </p>
@@ -275,14 +274,13 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                             건너뛰기
                         </button>
                     </div>
-                </div>
+                </OnboardingLayout>
             );
         }
 
         if (solvedacMode === 'connect') {
             return (
-                <div className="survey-form">
-                    <h2>BOJ 핸들 연결</h2>
+                <OnboardingLayout title="BOJ 핸들 연결">
                     <p className="subtitle">
                         백준 온라인 저지 핸들을 입력하세요.
                     </p>
@@ -353,14 +351,13 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                             )}
                         </div>
                     </div>
-                </div>
+                </OnboardingLayout>
             );
         }
 
         if (solvedacMode === 'manual') {
             return (
-                <div className="survey-form">
-                    <h2>알고리즘 경험 입력</h2>
+                <OnboardingLayout title="알고리즘 경험 입력">
                     <p className="subtitle">
                         대략적인 경험을 입력해주세요.
                     </p>
@@ -428,7 +425,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                             </button>
                         </div>
                     </div>
-                </div>
+                </OnboardingLayout>
             );
         }
     }

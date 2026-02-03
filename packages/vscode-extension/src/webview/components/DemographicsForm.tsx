@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { OnboardingLayout } from './OnboardingLayout';
 
 export interface Demographics {
     nickname?: string;
@@ -64,8 +65,7 @@ export const DemographicsForm: React.FC<DemographicsFormProps> = ({ onComplete, 
     const isValid = ageRange && status && field;
 
     return (
-        <div className="survey-form demographics-form">
-            <h2>당신에 대해 알려주세요</h2>
+        <OnboardingLayout title="당신에 대해 알려주세요">
             <p className="subtitle">
                 더 나은 맞춤형 학습 경험을 위해 몇 가지 정보를 수집합니다.
                 <br />
@@ -159,6 +159,6 @@ export const DemographicsForm: React.FC<DemographicsFormProps> = ({ onComplete, 
             <button className="skip-btn" onClick={onSkip}>
                 <span>건너뛰기 (추천하지 않음)</span>
             </button>
-        </div>
+        </OnboardingLayout>
     );
 };
