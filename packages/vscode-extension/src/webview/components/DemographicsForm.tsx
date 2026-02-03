@@ -152,12 +152,12 @@ export const DemographicsForm: React.FC<DemographicsFormProps> = ({ onComplete, 
                     onClick={handleSubmit}
                     disabled={!isValid}
                 >
-                    다음: 성격 검사 →
+                    <span>다음: 성격 검사 →</span>
                 </button>
             </div>
 
             <button className="skip-btn" onClick={onSkip}>
-                건너뛰기 (추천하지 않음)
+                <span>건너뛰기 (추천하지 않음)</span>
             </button>
         </div>
     );

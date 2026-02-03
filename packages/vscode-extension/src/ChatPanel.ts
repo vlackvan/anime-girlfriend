@@ -335,11 +335,17 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             const loadingImageUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'loading.png')
             );
+            const aruPortraitUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'Aru_Portrait.webp')
+            );
+            const chihiroPortraitUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'Chihiro_portrait.webp')
+            );
 
             console.log('[ChatPanel] Extension URI:', this.extensionUri.toString());
             console.log('[ChatPanel] Script URI:', scriptUri.toString());
 
-        return `<!DOCTYPE html>
+            return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -355,6 +361,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     window.assetBaseUri = {
       aru: "${aruImageUri}",
       chihiro: "${chihiroImageUri}",
+      aruPortrait: "${aruPortraitUri}",
+      chihiroPortrait: "${chihiroPortraitUri}",
       bongoIdle: "${bongoIdleUri}",
       bongoLeft: "${bongoLeftUri}",
       bongoRight: "${bongoRightUri}",

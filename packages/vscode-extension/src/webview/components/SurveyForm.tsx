@@ -235,7 +235,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                     onClick={handleEssaySubmit}
                     disabled={!essays.routine.trim() || !essays.struggle.trim() || !essays.goal.trim()}
                 >
-                    다음: 알고리즘 실력 연동 →
+                    <span>다음: 알고리즘 실력 연동 →</span>
                 </button>
             </div>
         );
@@ -329,7 +329,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                                         onClick={handleFetchSolvedac}
                                         disabled={fetchingStats || !bojHandle.trim()}
                                     >
-                                        {fetchingStats ? '가져오는 중...' : '정보 가져오기'}
+                                        <span>{fetchingStats ? '가져오는 중...' : '정보 가져오기'}</span>
                                     </button>
 
                                     <button
@@ -340,7 +340,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                                         }}
                                         disabled={fetchingStats}
                                     >
-                                        뒤로
+                                        <span>뒤로</span>
                                     </button>
                                 </>
                             ) : (
@@ -348,7 +348,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                                     className="submit-btn"
                                     onClick={() => proceedToAnalysis(solvedacData, solvedacData.summary)}
                                 >
-                                    계속하기 (분석 시작)
+                                    <span>계속하기 (분석 시작)</span>
                                 </button>
                             )}
                         </div>
@@ -417,14 +417,14 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                                 className="submit-btn"
                                 onClick={handleManualSubmit}
                             >
-                                계속
+                                <span>계속</span>
                             </button>
 
                             <button
                                 className="back-btn"
                                 onClick={() => setSolvedacMode('choice')}
                             >
-                                뒤로
+                                <span>뒤로</span>
                             </button>
                         </div>
                     </div>
