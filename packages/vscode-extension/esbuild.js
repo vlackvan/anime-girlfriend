@@ -8,7 +8,7 @@ const extensionConfig = {
     entryPoints: ['src/extension.ts'],
     bundle: true,
     outfile: 'out/extension.js',
-    external: ['vscode'],
+    external: ['vscode', 'pg-native', 'sharp', 'onnxruntime-node', '@xenova/transformers'],
     format: 'cjs',
     platform: 'node',
     sourcemap: true,

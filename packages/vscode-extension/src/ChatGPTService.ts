@@ -5,6 +5,7 @@ import { CodeContextProvider } from './CodeContextProvider';
 import { generateCoDPrompt, generateCoreMemoriesPrompt } from './webview/personality/promptEngine';
 import { UserEssays, Character } from './webview/personality/types';
 import { ARU_SPC, CHIHIRO_SPC } from './webview/personality/characterProfiles';
+import { RAGService } from './services/RAGService';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -20,12 +21,29 @@ export interface StreamCallbacks {
 export class ChatGPTService {
     private apiKeyManager: ApiKeyManager;
     private codeContextProvider: CodeContextProvider;
+    private ragService: RAGService;
     private conversationHistory: ChatMessage[] = [];
     private userProfile?: StoredUserProfile;
 
     constructor(apiKeyManager: ApiKeyManager) {
         this.apiKeyManager = apiKeyManager;
         this.codeContextProvider = new CodeContextProvider();
+        this.ragService = RAGService.getInstance();
+
+        // Initialize RAG service asynchronously
+        this.initializeRAG();
+    }
+
+    /**
+     * Initialize RAG service
+     */
+    private async initializeRAG(): Promise<void> {
+        try {
+            await this.ragService.initialize();
+            console.log('[ChatGPTService] RAG service initialized');
+        } catch (error) {
+            console.error('[ChatGPTService] Failed to initialize RAG:', error);
+        }
     }
 
     /**
@@ -62,8 +80,42 @@ export class ChatGPTService {
             return;
         }
 
-        // Build system prompt
-        const systemPrompt = this.buildSystemPrompt();
+        // Retrieve relevant context from RAG if enabled
+        let ragContext = '';
+        try {
+            // Check if message mentions a BOJ problem
+            const problemId = this.detectBOJProblem(userMessage);
+
+            if (problemId) {
+                // Get BOJ-specific context
+                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
+                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
+                ragContext = formattedContext;
+                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+                if (documents.length > 0) {
+                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
+                }
+            } else if (this.ragService.isEnabled()) {
+                // Get general relevant context
+                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
+                ragContext = formattedContext;
+                if (documents.length > 0) {
+                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
+                }
+            }
+
+            if (ragContext) {
+                console.log(`[ChatGPTService] ✅ RAG context injected (${ragContext.length} characters)`);
+            } else {
+                console.log(`[ChatGPTService] ℹ️  No RAG context retrieved for this query`);
+            }
+        } catch (error) {
+            console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
+        }
+
+        // Build system prompt with RAG context
+        const systemPrompt = this.buildSystemPrompt(ragContext);
 
         // Add user message to history
         this.conversationHistory.push({
@@ -163,6 +215,15 @@ export class ChatGPTService {
                 content: fullResponse
             });
 
+            // TODO: Chat history saving disabled - was contaminating RAG database
+            // Re-enable when we have proper filtering/management for conversation history
+            // Store conversation in RAG for future retrieval
+            // try {
+            //     await this.ragService.addChatToMemory(userMessage, fullResponse);
+            // } catch (error) {
+            //     console.error('[ChatGPTService] Failed to store chat in RAG:', error);
+            // }
+
             callbacks.onComplete(fullResponse);
 
         } catch (error) {
@@ -183,9 +244,10 @@ export class ChatGPTService {
         // This ensures the model treats this as a fresh turn to respond to.
         const triggerMessage = {
             role: 'user',
-            content: `[SYSTEM EVENT] User pressed the 'Heart Button'. 
+            content: `[SYSTEM EVENT] User pressed the 'Heart Button'.
 ACTION REQUIRED: Disengage "Tough Love". Engage "Decre" (Sweet) Mode.
-OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.`
+OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.
+LANGUAGE: Respond in Korean (한국어) ONLY.`
         };
 
         const messages = [
@@ -306,7 +368,7 @@ OUTPUT: One genuine, romantic, affectionate sentence IN CHARACTER.`
     /**
      * Build the system prompt with persona, personality, and pedagogy rules
      */
-    private buildSystemPrompt(): string {
+    private buildSystemPrompt(ragContext: string = ''): string {
         // If we have an analysis from the CoD pipeline, use that as the system prompt.
         if (this.userProfile?.analysis) {
             const character = this.userProfile.character || 'aru';
@@ -332,7 +394,10 @@ ${sharedMemories}
 `;
             }
 
+            const ragSection = ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${ragContext}\n` : '';
+
             return `
+
 ### CHARACTER PROFILE
 ${characterSPC}
 
@@ -356,7 +421,7 @@ The User's profile (Context C) is NOT your history. It is HIS history.
     * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
 
 
-Acknowledge and validate his current struggles: It’s important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
+Acknowledge and validate his current struggles: It's important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
 
 
 Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
@@ -364,16 +429,17 @@ Contrast his present chaos with our future stability: Focus on the growth of you
 
 
 ### CHAT RULES
-1.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
-2.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
-3.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
-4.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
+1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
+2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
+3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
+4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
+5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
 //
 ### USER ANALYSIS & INTERACTION DYNAMICS
 (The User's Psychology - What you know about him)
 ${this.userProfile.analysis}
 
-
+${ragSection}
 
 
 ### CURRENT CONTEXT (Code)
