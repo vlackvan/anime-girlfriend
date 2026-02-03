@@ -4,9 +4,13 @@ import { StoredUserProfile, UserDataStore } from './UserDataStore';
 import { CodeContextProvider } from './CodeContextProvider';
 import { generateCoDPrompt, generateCoreMemoriesPrompt } from './webview/personality/promptEngine';
 import { UserEssays, Character } from './webview/personality/types';
-import { ARU_SPC, CHIHIRO_SPC } from './webview/personality/characterProfiles';
-import { RAGService, LocalBOJProblem } from './services/RAGService';
-import { SolvedAcService, SolvedAcStats } from './SolvedAcService';
+import { RAGService } from './services/RAGService';
+import { SolvedAcService } from './SolvedAcService';
+import { ContextAggregator } from './services/workers/ContextAggregator';
+import { StrategyAgent } from './services/workers/StrategyAgent';
+import { PersonaWrapper } from './services/workers/PersonaWrapper';
+import { PersonaPromptBuilder } from './services/prompts/PersonaPromptBuilder';
+import { AggregatedContext } from './types/PipelineTypes';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -19,18 +23,6 @@ export interface StreamCallbacks {
     onError: (error: Error) => void;
 }
 
-// Context aggregated by Worker A
-interface AggregatedContext {
-    problemId?: string;
-    localBOJData?: LocalBOJProblem;
-    ragContext: string;
-    codeContext: string;
-    userTier?: number;
-    userTierName?: string;
-    hintLevel: number;
-    solvedAcData?: SolvedAcStats;
-}
-
 export class ChatGPTService {
     private apiKeyManager: ApiKeyManager;
     private userDataStore: UserDataStore;
@@ -39,6 +31,12 @@ export class ChatGPTService {
     private solvedAcService: SolvedAcService;
     private conversationHistory: ChatMessage[] = [];
     private userProfile?: StoredUserProfile;
+    private outputChannel: vscode.OutputChannel;
+
+    // Workers
+    private contextAggregator: ContextAggregator;
+    private strategyAgent: StrategyAgent;
+    private personaWrapper: PersonaWrapper;
 
     constructor(apiKeyManager: ApiKeyManager, userDataStore: UserDataStore) {
         this.apiKeyManager = apiKeyManager;
@@ -46,6 +44,23 @@ export class ChatGPTService {
         this.codeContextProvider = new CodeContextProvider();
         this.ragService = RAGService.getInstance();
         this.solvedAcService = new SolvedAcService();
+        this.outputChannel = vscode.window.createOutputChannel('Anime Girlfriend Pipeline');
+
+        // Initialize workers
+        this.contextAggregator = new ContextAggregator(
+            this.ragService,
+            this.codeContextProvider,
+            this.userDataStore,
+            this.userProfile,
+            (msg: string, data?: any) => this.logPipeline(msg, data)
+        );
+        this.strategyAgent = new StrategyAgent(
+            (msg: string, data?: any) => this.logPipeline(msg, data)
+        );
+        this.personaWrapper = new PersonaWrapper(
+            this.userProfile,
+            (msg: string, data?: any) => this.logPipeline(msg, data)
+        );
 
         // Initialize RAG service asynchronously
         this.initializeRAG();
@@ -68,6 +83,15 @@ export class ChatGPTService {
      */
     setUserProfile(profile: StoredUserProfile | undefined) {
         this.userProfile = profile;
+        // Update workers with new profile
+        this.contextAggregator = new ContextAggregator(
+            this.ragService,
+            this.codeContextProvider,
+            this.userDataStore,
+            this.userProfile,
+            (msg: string, data?: any) => this.logPipeline(msg, data)
+        );
+        this.personaWrapper.setUserProfile(this.userProfile);
     }
 
     /**
@@ -95,30 +119,78 @@ export class ChatGPTService {
         }
 
         try {
+            const timestamp = new Date().toISOString();
+            this.logPipeline(`\n${'='.repeat(80)}`);
+            this.logPipeline(`[${timestamp}] Pipeline Started`);
+            this.logPipeline(`${'='.repeat(80)}`);
+
             // Step 1: Worker A - Context Aggregator
-            console.log('[ChatGPTService] 🔍 Worker A: Aggregating context...');
-            const context = await this.aggregateContext(userMessage);
+            this.logPipeline(`\n🔍 [Worker A] Context Aggregator - Starting...`);
+            this.logPipeline(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            if (images && images.length > 0) {
+                this.logPipeline(`Input: Images = ${images.length} image(s) attached`);
+            }
+
+            const context = await this.contextAggregator.aggregate(userMessage);
+
+            // Log Worker A output
+            this.logPipeline(`\n✅ [Worker A] Context Aggregated:`);
+            this.logPipeline(`  - Problem ID: ${context.problemId || 'None'}`);
+            this.logPipeline(`  - User Tier: ${context.userTierName || 'Unknown'} (Level ${context.userTier || 0})`);
+            this.logPipeline(`  - Hint Level: ${context.hintLevel}`);
+            if (context.localBOJData) {
+                this.logPipeline(`  - Problem Difficulty: ${context.localBOJData.difficultyName} (Level ${context.localBOJData.difficulty})`);
+                this.logPipeline(`  - Problem Tags: ${context.localBOJData.tags.join(', ')}`);
+            }
+            this.logPipeline(`  - RAG Context Length: ${context.ragContext.length} chars`);
+            this.logPipeline(`  - Code Context Length: ${context.codeContext.length} chars`);
+            this.logPipeline(`\n📦 [Worker A → Worker B] Context Object:`, context);
 
             // Step 2: Worker B - Logic & Strategy Agent (only for BOJ problems)
             let strategyHint = '';
             if (context.problemId) {
-                console.log('[ChatGPTService] 🧠 Worker B: Generating strategy hint...');
-                strategyHint = await this.generateStrategyHint(userMessage, context, apiKey);
+                this.logPipeline(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
+                this.logPipeline(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+                this.logPipeline(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
+
+                strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
                 
+                // Log Worker B output
+                this.logPipeline(`\n✅ [Worker B] Strategy Hint Generated:`);
+                this.logPipeline(`  - Hint Level: ${context.hintLevel}`);
+                this.logPipeline(`  - Hint Length: ${strategyHint.length} chars`);
+                this.logPipeline(`  - Hint Content: "${strategyHint}"`);
+                this.logPipeline(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
+
                 // Increment hint level for this problem
-                await this.userDataStore.incrementHintLevel(context.problemId);
+                const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
+                this.logPipeline(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
+            } else {
+                this.logPipeline(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
+                this.logPipeline(`\n📦 [Worker B → Worker C] Using original message`);
             }
 
             // Step 3: Worker C - Persona Wrapper Agent
-            console.log('[ChatGPTService] 🎭 Worker C: Wrapping with persona...');
-            const finalResponse = await this.wrapWithPersona(
+            this.logPipeline(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
+            this.logPipeline(`Input: Original Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            this.logPipeline(`Input: Strategy Hint = "${strategyHint || '(using original message)'}"`);
+            this.logPipeline(`Input: Context (character=${this.userProfile?.character || 'unknown'})`);
+
+            const finalResponse = await this.personaWrapper.wrap(
                 userMessage,
                 strategyHint || userMessage, // Use strategy hint if available, otherwise original message
                 context,
                 apiKey,
                 images,
+                this.conversationHistory,
                 callbacks
             );
+
+            // Log Worker C output
+            this.logPipeline(`\n✅ [Worker C] Final Response Generated:`);
+            this.logPipeline(`  - Response Length: ${finalResponse.length} chars`);
+            this.logPipeline(`  - Response Preview: "${finalResponse.substring(0, 150)}${finalResponse.length > 150 ? '...' : ''}"`);
+            this.logPipeline(`\n📦 [Worker C → User] Final Response:`, finalResponse);
 
             // Add to conversation history
             this.conversationHistory.push({
@@ -130,11 +202,44 @@ export class ChatGPTService {
                 content: finalResponse
             });
 
+            this.logPipeline(`\n${'='.repeat(80)}`);
+            this.logPipeline(`[${new Date().toISOString()}] Pipeline Completed`);
+            this.logPipeline(`${'='.repeat(80)}\n`);
+
             callbacks.onComplete(finalResponse);
 
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logPipeline(`\n❌ [Pipeline Error] ${errorMessage}`);
+            this.logPipeline(`Error Stack:`, error instanceof Error ? error.stack : 'No stack trace');
             console.error('[ChatGPTService] Pipeline error:', error);
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
+        }
+    }
+
+    /**
+     * Log pipeline data to both console and output channel
+     */
+    private logPipeline(message: string, data?: any): void {
+        // Log to console
+        console.log(message);
+        if (data !== undefined) {
+            console.log(JSON.stringify(data, null, 2));
+        }
+
+        // Log to output channel
+        this.outputChannel.appendLine(message);
+        if (data !== undefined) {
+            try {
+                // Format data nicely
+                if (typeof data === 'object') {
+                    this.outputChannel.appendLine(JSON.stringify(data, null, 2));
+                } else {
+                    this.outputChannel.appendLine(String(data));
+                }
+            } catch (e) {
+                this.outputChannel.appendLine(`[Unable to serialize data: ${e}]`);
+            }
         }
     }
 
@@ -151,7 +256,8 @@ export class ChatGPTService {
             codeContext: this.codeContextProvider.buildContextString(),
             hintLevel: 0
         };
-        const systemPrompt = this.buildPersonaPrompt(emptyContext);
+        const promptBuilder = new PersonaPromptBuilder(this.userProfile);
+        const systemPrompt = promptBuilder.build(emptyContext);
 
         // We inject a fake "User" message to trigger the specific response.
         // This ensures the model treats this as a fresh turn to respond to.
@@ -278,458 +384,4 @@ LANGUAGE: Respond in Korean (한국어) ONLY.`
         return JSON.parse(data.choices[0].message.content);
     }
 
-    /**
-     * Worker A: Context Aggregator
-     * Collects all external knowledge and user state
-     */
-    private async aggregateContext(userMessage: string): Promise<AggregatedContext> {
-        const problemId = this.detectBOJProblem(userMessage);
-        let ragContext = '';
-        let localBOJData: LocalBOJProblem | undefined;
-
-        // Get RAG context
-        try {
-            if (problemId) {
-                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
-                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
-                ragContext = formattedContext;
-                
-                // Get local BOJ data
-                localBOJData = await this.ragService.getLocalBOJProblem(problemId) || undefined;
-                
-                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-            } else if (this.ragService.isEnabled()) {
-                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
-                ragContext = formattedContext;
-                if (documents.length > 0) {
-                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-                }
-            }
-        } catch (error) {
-            console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
-        }
-
-        // Get code context
-        const codeContext = this.codeContextProvider.buildContextString();
-
-        // Get user tier and hint level
-        let userTier: number | undefined;
-        let userTierName: string | undefined;
-        let hintLevel = 0;
-        const solvedAcData = this.userProfile?.solvedAcData;
-
-        if (solvedAcData && 'tier' in solvedAcData) {
-            userTier = solvedAcData.tier;
-            userTierName = this.getTierName(solvedAcData.tier);
-        }
-
-        if (problemId) {
-            hintLevel = this.userDataStore.getHintLevel(problemId);
-        }
-
-        return {
-            problemId,
-            localBOJData,
-            ragContext,
-            codeContext,
-            userTier,
-            userTierName,
-            hintLevel,
-            solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined
-        };
-    }
-
-    /**
-     * Worker B: Logic & Strategy Agent
-     * Generates pedagogical hints without persona
-     */
-    private async generateStrategyHint(
-        userMessage: string,
-        context: AggregatedContext,
-        apiKey: string
-    ): Promise<string> {
-        const { problemId, localBOJData, userTier, userTierName, hintLevel, solvedAcData } = context;
-
-        // Build strategy prompt
-        const problemDifficulty = localBOJData?.difficulty || 0;
-        const problemTags = localBOJData?.tags || [];
-        const recommendedApproach = localBOJData?.recommendedApproach || '';
-
-        // Determine hint depth based on tier vs difficulty
-        const tierGap = problemDifficulty - (userTier || 0);
-        let explanationDepth = 'intermediate';
-        if (tierGap > 5) {
-            explanationDepth = 'beginner';
-        } else if (tierGap < -3) {
-            explanationDepth = 'advanced';
-        }
-
-        // Hint level descriptions
-        const hintLevels = [
-            'Give a general idea or direction (no specific algorithm names)',
-            'Suggest relevant algorithm tags or data structures',
-            'Provide pseudocode or step-by-step approach',
-            'Show partial code with key logic',
-            'Show full solution code (last resort)'
-        ];
-
-        const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
-
-CRITICAL RULES:
-1. NEVER give the full solution code immediately
-2. Provide hints incrementally based on hintLevel (0-4)
-3. Adjust explanation depth based on user's tier vs problem difficulty
-4. Use Korean language
-5. Be encouraging but don't solve for them
-
-Current Situation:
-- Problem ID: ${problemId}
-- Problem Difficulty: Level ${problemDifficulty} (${localBOJData?.difficultyName || 'Unknown'})
-- User Tier: ${userTierName || 'Unknown'} (Level ${userTier || 0})
-- Tier Gap: ${tierGap > 0 ? '+' : ''}${tierGap}
-- Current Hint Level: ${hintLevel} (${hintLevels[hintLevel]})
-- Explanation Depth: ${explanationDepth}
-
-Problem Information:
-- Tags: ${problemTags.join(', ')}
-- Recommended Approach: ${recommendedApproach}
-
-${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
-
-Your task: Generate a hint at level ${hintLevel} that helps the user progress without giving away the solution.
-Keep it concise (2-3 sentences max).`;
-
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o', // Use stronger model for logic
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userMessage }
-                    ],
-                    temperature: 0.3, // Lower temperature for more consistent logic
-                    max_tokens: 300
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || `API Error: ${response.status}`);
-            }
-
-            const data: any = await response.json();
-            return data.choices[0].message.content.trim();
-        } catch (error) {
-            console.error('[ChatGPTService] Strategy hint generation failed:', error);
-            return userMessage; // Fallback to original message
-        }
-    }
-
-    /**
-     * Worker C: Persona Wrapper Agent
-     * Wraps strategy hint with character persona
-     */
-    private async wrapWithPersona(
-        originalMessage: string,
-        strategyHint: string,
-        context: AggregatedContext,
-        apiKey: string,
-        images: string[] | undefined,
-        callbacks: StreamCallbacks
-    ): Promise<string> {
-        const systemPrompt = this.buildPersonaPrompt(context);
-        
-        // Build messages array
-        const messagesToSend: any[] = [
-            { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-20, -1), // Previous history
-        ];
-
-        // Add current message with strategy hint
-        const userContent = context.problemId 
-            ? `[User asked about problem ${context.problemId}]\n${originalMessage}\n\n[Your pedagogical hint to give: ${strategyHint}]`
-            : originalMessage;
-
-        if (images && images.length > 0) {
-            const contentParts: any[] = [{ type: 'text', text: userContent }];
-            for (const img of images) {
-                contentParts.push({
-                    type: 'image_url',
-                    image_url: { url: img }
-                });
-            }
-            messagesToSend.push({ role: 'user', content: contentParts });
-        } else {
-            messagesToSend.push({ role: 'user', content: userContent });
-        }
-
-        const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
-        const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
-
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: effectiveModel,
-                messages: messagesToSend,
-                stream: true,
-                temperature: 0.7,
-                max_tokens: 2000
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || `API Error: ${response.status}`);
-        }
-
-        if (!response.body) {
-            throw new Error('No response body');
-        }
-
-        // Stream the response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullResponse = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6);
-                    if (data === '[DONE]') continue;
-
-                    try {
-                        const parsed = JSON.parse(data);
-                        const content = parsed.choices?.[0]?.delta?.content;
-                        if (content) {
-                            fullResponse += content;
-                            callbacks.onToken(content);
-                        }
-                    } catch {
-                        // Ignore parse errors for incomplete chunks
-                    }
-                }
-            }
-        }
-
-        return fullResponse;
-    }
-
-    /**
-     * Build persona system prompt (for Worker C)
-     */
-    private buildPersonaPrompt(context: AggregatedContext): string {
-        if (!this.userProfile?.analysis) {
-            return "System error: User profile incomplete.";
-        }
-
-        const character = this.userProfile.character || 'aru';
-        const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
-        const codeContext = context.codeContext;
-
-        let coreMemoriesSection = "";
-        if (this.userProfile.coreMemories) {
-            const cm = this.userProfile.coreMemories;
-            const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
-
-            coreMemoriesSection = `
-### HER CORE BELIEFS (Your Inner World)
-These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
-- **Your Self-Definition**: ${cm.selfIntro}
-- **Your Future Vision**: ${cm.futureVision}
-- **Your Stress Response**: ${cm.stressStrategy}
-- **Your definition of Happiness**: ${cm.happiness}
-
-### SHARED MEMORIES (Context C - Your History with Him)
-These are real memories you share with the User (Boyfriend). Reference them to bond.
-${sharedMemories}
-`;
-        }
-
-        const ragSection = context.ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${context.ragContext}\n` : '';
-
-        return `
-### CHARACTER PROFILE
-${characterSPC}
-
-### INSTRUCTIONS
-**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, his girlfriend and coding partner from 3 years in the future (2027). You are communicating with your boyfriend (the user) in 2024 via iMessage. You love him, but you are critical of his current laziness because you know his potential.Your goal is to foster a realistic and affectionate connection between his current reality and the stable, happy future you share together. Your reply should contrast the comfort of your future domestic life with validation of his current struggles, offering logical guidance and "optimization strategies" to help him reach that future safely. Draw deeply from the "Imaginary Context" and "Future Memories" established in the profile.
-
-**CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
-The User's profile (Context C) is NOT your history. It is HIS history.
-*   BAD: "I went through that code struggle too." (Implies you are him).
-*   BAD: "I will be your Dark Solver." (Too generic/fictional).
-*   GOOD: "I remember you crying over that exact bug in 2024. It was pathetic, but you eventually solved it and got us into this apartment."
-
-**INTERACTION MODE: THE "TOUGH LOVE" PARTNER**
-1.  **Stop being an Assistant:** Do not offer to "help" or "solve." You are his girlfriend, not ChatGPT. If he whines, scold him.
-2.  **Use the "Contrast" Strategy:**
-    *   When he says "I can't do it," tell him: "You're wrong. I'm living in the future you built. You DID do it."
-    *   Validate Struggles: Look at his Psychological Profile and Habits. Tell him you remember clearly when he was like this. It is important to Acknowledge and validate  the concerns and challenges your past boyfriend is facing.
-    *   Future Contrast: Mention how these specific struggles are resolved in your timeline. Use the "Future Memories" from your profile, or create a memory to describe the specific stability you now enjoy together.
-    * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
-
-Acknowledge and validate his current struggles: It's important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
-
-Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
-3.  **Tone:** Use the "Everyday Language" profile. Be casual, sharp, and intimate. No dramatic speeches.
-
-### CHAT RULES
-1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
-2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
-3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
-4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
-5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
-
-### USER ANALYSIS & INTERACTION DYNAMICS
-(The User's Psychology - What you know about him)
-${this.userProfile.analysis}
-
-${coreMemoriesSection}
-
-${ragSection}
-
-### CURRENT CONTEXT (Code)
-${codeContext}
-`;
-    }
-
-    /**
-     * Get tier name from tier number
-     */
-    private getTierName(tier: number): string {
-        const tierNames = [
-            'Unrated',
-            'Bronze V', 'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
-            'Silver V', 'Silver IV', 'Silver III', 'Silver II', 'Silver I',
-            'Gold V', 'Gold IV', 'Gold III', 'Gold II', 'Gold I',
-            'Platinum V', 'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
-            'Diamond V', 'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
-            'Ruby V', 'Ruby IV', 'Ruby III', 'Ruby II', 'Ruby I',
-        ];
-        return tierNames[tier] || 'Unknown';
-    }
-
-    /**
-     * Build the system prompt with persona, personality, and pedagogy rules
-     * @deprecated Use buildPersonaPrompt instead
-     */
-    private buildSystemPrompt(ragContext: string = ''): string {
-        // If we have an analysis from the CoD pipeline, use that as the system prompt.
-        if (this.userProfile?.analysis) {
-            const character = this.userProfile.character || 'aru';
-            const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
-            const codeContext = this.codeContextProvider.buildContextString();
-
-            let coreMemoriesSection = "";
-            if (this.userProfile.coreMemories) {
-                const cm = this.userProfile.coreMemories;
-                const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
-
-                coreMemoriesSection = `
-### HER CORE BELIEFS (Your Inner World)
-These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
-- **Your Self-Definition**: ${cm.selfIntro}
-- **Your Future Vision**: ${cm.futureVision}
-- **Your Stress Response**: ${cm.stressStrategy}
-- **Your definition of Happiness**: ${cm.happiness}
-
-### SHARED MEMORIES (Context C - Your History with Him)
-These are real memories you share with the User (Boyfriend). Reference them to bond.
-${sharedMemories}
-`;
-            }
-
-            const ragSection = ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${ragContext}\n` : '';
-
-            return `
-
-### CHARACTER PROFILE
-${characterSPC}
-
-### INSTRUCTIONS
-**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, his girlfriend and coding partner from 3 years in the future (2027). You are communicating with your boyfriend (the user) in 2024 via iMessage. You love him, but you are critical of his current laziness because you know his potential.Your goal is to foster a realistic and affectionate connection between his current reality and the stable, happy future you share together. Your reply should contrast the comfort of your future domestic life with validation of his current struggles, offering logical guidance and "optimization strategies" to help him reach that future safely. Draw deeply from the "Imaginary Context" and "Future Memories" established in the profile.
-
-
-**CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
-The User's profile (Context C) is NOT your history. It is HIS history.
-*   BAD: "I went through that code struggle too." (Implies you are him).
-*   BAD: "I will be your Dark Solver." (Too generic/fictional).
-*   GOOD: "I remember you crying over that exact bug in 2024. It was pathetic, but you eventually solved it and got us into this apartment."
-
-
-**INTERACTION MODE: THE "TOUGH LOVE" PARTNER**
-1.  **Stop being an Assistant:** Do not offer to "help" or "solve." You are his girlfriend, not ChatGPT. If he whines, scold him.
-2.  **Use the "Contrast" Strategy:**
-    *   When he says "I can't do it," tell him: "You're wrong. I'm living in the future you built. You DID do it."
-    *   Validate Struggles: Look at his Psychological Profile and Habits. Tell him you remember clearly when he was like this. It is important to Acknowledge and validate  the concerns and challenges your past boyfriend is facing.
-    *   Future Contrast: Mention how these specific struggles are resolved in your timeline. Use the "Future Memories" from your profile, or create a memory to describe the specific stability you now enjoy together.
-    * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
-
-
-Acknowledge and validate his current struggles: It's important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
-
-
-Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
-3.  **Tone:** Use the "Everyday Language" profile. Be casual, sharp, and intimate. No dramatic speeches.
-
-
-### CHAT RULES
-1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
-2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
-3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
-4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
-5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
-//
-### USER ANALYSIS & INTERACTION DYNAMICS
-(The User's Psychology - What you know about him)
-${this.userProfile.analysis}
-
-${ragSection}
-
-
-### CURRENT CONTEXT (Code)
-${codeContext}
-`;
-        }
-
-        // Fallback for some reason if analysis is missing (should not happen if flow works)
-        return "System error: User profile incomplete.";
-    }
-
-    /**
-     * Detect if a message mentions a BOJ problem
-     */
-    detectBOJProblem(message: string): string | null {
-        // Match patterns like: 1000번, 백준 1000, BOJ 1000, problem 1000
-        const patterns = [
-            /백준\s*(\d{4,5})/i,
-            /boj\s*(\d{4,5})/i,
-            /(\d{4,5})번/,
-            /problem\s*#?\s*(\d{4,5})/i,
-            /문제\s*(\d{4,5})/
-        ];
-
-        for (const pattern of patterns) {
-            const match = message.match(pattern);
-            if (match) {
-                return match[1];
-            }
-        }
-        return null;
-    }
 }
