@@ -303,7 +303,7 @@ export class DatabaseService {
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        // If we have an embedding, order by similarity; otherwise just return matches
+        // If we have an embedding, calculate similarity; otherwise just return matches
         let query: string;
         if (queryEmbedding) {
             const vectorString = `[${queryEmbedding.join(',')}]`;
@@ -311,6 +311,10 @@ export class DatabaseService {
             // Adjust param indices in WHERE clause
             const adjustedWhereClause = whereClause.replace(/\$(\d+)/g, (match, num) => `$${parseInt(num) + 1}`);
 
+            // IMPORTANT: Do NOT use ORDER BY with metadata filters due to PostgreSQL/pgvector bug
+            // When combining WHERE metadata filter + ORDER BY vector distance, the query returns 0 results
+            // Instead, we calculate similarity and sort in memory (which is fine since metadata filters
+            // typically return only 1-3 documents)
             query = `
                 SELECT
                     d.id,
@@ -320,10 +324,7 @@ export class DatabaseService {
                 FROM embeddings e
                 JOIN documents d ON e.document_id = d.id
                 ${adjustedWhereClause}
-                ORDER BY e.embedding <=> $1::vector
-                LIMIT $${params.length + 1}
             `;
-            params.push(limit);
         } else {
             query = `
                 SELECT
@@ -333,9 +334,7 @@ export class DatabaseService {
                     0 as similarity
                 FROM documents d
                 ${whereClause}
-                LIMIT $${params.length + 1}
             `;
-            params.push(limit);
         }
 
         const result = await this.query<{
@@ -345,6 +344,13 @@ export class DatabaseService {
             similarity: number;
         }>(query, params);
 
-        return result.rows;
+        // Sort by similarity in memory and apply limit
+        // This is efficient because metadata-filtered queries typically return very few documents
+        let rows = result.rows;
+        if (queryEmbedding && rows.length > 0) {
+            rows.sort((a, b) => b.similarity - a.similarity);
+        }
+
+        return rows.slice(0, limit);
     }
 }

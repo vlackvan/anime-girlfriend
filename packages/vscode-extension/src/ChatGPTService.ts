@@ -215,12 +215,14 @@ export class ChatGPTService {
                 content: fullResponse
             });
 
+            // TODO: Chat history saving disabled - was contaminating RAG database
+            // Re-enable when we have proper filtering/management for conversation history
             // Store conversation in RAG for future retrieval
-            try {
-                await this.ragService.addChatToMemory(userMessage, fullResponse);
-            } catch (error) {
-                console.error('[ChatGPTService] Failed to store chat in RAG:', error);
-            }
+            // try {
+            //     await this.ragService.addChatToMemory(userMessage, fullResponse);
+            // } catch (error) {
+            //     console.error('[ChatGPTService] Failed to store chat in RAG:', error);
+            // }
 
             callbacks.onComplete(fullResponse);
 
