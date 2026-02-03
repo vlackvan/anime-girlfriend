@@ -1,12 +1,18 @@
 import * as http from 'http';
 
-interface BOJSuccessData {
+export interface BOJJudgeResult {
     problemId: string;
-    status: string;
+    resultText: string;
+    status: 'accepted' | 'wrong_answer' | 'time_limit' | 'memory_limit' | 
+            'runtime_error' | 'compile_error' | 'output_limit' | 
+            'presentation_error' | 'unknown';
+    memory?: string;
+    time?: string;
+    submissionId?: string;
     timestamp?: string;
 }
 
-type BOJCallback = (data: BOJSuccessData) => void;
+type BOJCallback = (data: BOJJudgeResult) => void;
 
 export class LocalServer {
     private server: http.Server;
@@ -27,7 +33,7 @@ export class LocalServer {
                 return;
             }
 
-            if (req.method === 'POST' && req.url === '/success') {
+            if (req.method === 'POST' && (req.url === '/judge-result' || req.url === '/success')) {
                 let body = '';
 
                 req.on('data', (chunk) => {
@@ -36,8 +42,8 @@ export class LocalServer {
 
                 req.on('end', () => {
                     try {
-                        const data: BOJSuccessData = JSON.parse(body);
-                        console.log('[LocalServer] Received BOJ success:', data);
+                        const data: BOJJudgeResult = JSON.parse(body);
+                        console.log('[LocalServer] Received BOJ judge result:', data);
 
                         onBOJSuccess(data);
 
