@@ -183,6 +183,72 @@ body {
 }
 
 /* ============================================
+   CINEMATIC INTRO OVERLAY
+   ============================================ */
+.cinematic-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: cinematicFadeOut 3s ease-in-out forwards;
+}
+
+@keyframes cinematicFadeOut {
+    0% {
+        opacity: 1;
+    }
+
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+.cinematic-title {
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    text-align: center;
+    padding: 0 40px;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+    animation: cinematicTextFade 3s ease-in-out forwards;
+}
+
+@keyframes cinematicTextFade {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    15% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    70% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* ============================================
+   END CINEMATIC INTRO OVERLAY
+   ============================================ */
+
+/* ============================================
    CHARACTER SELECTION POPUP BOX
    ============================================ */
 .character-popup-box {
@@ -319,6 +385,55 @@ body {
     right: auto;
     width: 100%;
     margin-top: 8px;
+}
+
+/* Select Character Button - Fixed at bottom right */
+.select-character-btn {
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #4CAEE3 0%, #1EA2DA 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(74, 174, 227, 0.4);
+    transform: skewX(-10deg);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    z-index: 200;
+    animation: selectBtnFadeIn 0.4s ease;
+}
+
+@keyframes selectBtnFadeIn {
+    from {
+        opacity: 0;
+        transform: skewX(-10deg) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: skewX(-10deg) translateY(0);
+    }
+}
+
+.select-character-btn span {
+    display: inline-block;
+    transform: skewX(10deg);
+}
+
+.select-character-btn:hover {
+    background: linear-gradient(135deg, #F8D03F 0%, #E6B800 100%);
+    box-shadow: 0 8px 24px rgba(248, 208, 63, 0.5);
+    transform: skewX(-10deg) translateY(-2px);
+}
+
+.select-character-btn:active {
+    transform: skewX(-10deg) translateY(0);
 }
 
 /* ============================================
@@ -1724,3 +1839,179 @@ body {
     color: var(--vscode-descriptionForeground);
     text-align: center;
 }
+
+/* ============================================
+   ONBOARDING SKEWED BUTTONS
+   ============================================ */
+
+/* Base Button Style - Skewed Parallelogram */
+.submit-btn,
+.skip-btn,
+.back-btn {
+    padding: 14px 28px;
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: skewX(-10deg);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Counter-skew the text inside buttons */
+.submit-btn span,
+.skip-btn span,
+.back-btn span {
+    display: inline-block;
+    transform: skewX(10deg);
+}
+
+/* Submit Button - Primary Action */
+.submit-btn {
+    background: linear-gradient(135deg, #4CAEE3 0%, #1EA2DA 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(74, 174, 227, 0.3);
+}
+
+.submit-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #F8D03F 0%, #E6B800 100%);
+    box-shadow: 0 6px 16px rgba(248, 208, 63, 0.4);
+    transform: skewX(-10deg) translateY(-2px);
+}
+
+.submit-btn:active:not(:disabled) {
+    transform: skewX(-10deg) translateY(0);
+}
+
+/* Submit Button - Disabled State (still skewed) */
+.submit-btn:disabled {
+    background: linear-gradient(135deg, #9CA3AF 0%, #6B7280 100%);
+    color: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: not-allowed;
+    transform: skewX(-10deg);
+    /* Maintain skew when disabled */
+}
+
+/* Skip Button - Secondary Action */
+.skip-btn {
+    background: linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%);
+    color: #4B5563;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.skip-btn:hover {
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: skewX(-10deg) translateY(-2px);
+}
+
+.skip-btn:active {
+    transform: skewX(-10deg) translateY(0);
+}
+
+/* Back Button - Tertiary Action */
+.back-btn {
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    color: #374151;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(74, 174, 227, 0.3);
+}
+
+.back-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+    border-color: #4CAEE3;
+    box-shadow: 0 4px 12px rgba(74, 174, 227, 0.2);
+    transform: skewX(-10deg) translateY(-2px);
+}
+
+.back-btn:active:not(:disabled) {
+    transform: skewX(-10deg) translateY(0);
+}
+
+.back-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: skewX(-10deg);
+    /* Maintain skew when disabled */
+}
+
+/* Choice Button - Selection Cards (also skewed) */
+.choice-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+    border: 2px solid rgba(74, 174, 227, 0.3);
+    border-radius: 12px;
+    padding: 18px 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: skewX(-5deg);
+    box-shadow: 0 2px 8px rgba(74, 174, 227, 0.12);
+}
+
+.choice-btn strong,
+.choice-btn .subtitle {
+    display: inline-block;
+    transform: skewX(5deg);
+}
+
+.choice-btn:hover {
+    border-color: #4CAEE3;
+    box-shadow: 0 4px 16px rgba(74, 174, 227, 0.25);
+    transform: skewX(-5deg) translateY(-2px);
+}
+
+.choice-btn.primary {
+    border-color: #4CAEE3;
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+}
+
+.choice-btn.primary:hover {
+    background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+}
+
+/* Tag Buttons - Algorithm Tags */
+.tag-btn {
+    padding: 10px 16px;
+    background: #E5E7EB;
+    color: #4B5563;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: skewX(-5deg);
+}
+
+.tag-btn span {
+    display: inline-block;
+    transform: skewX(5deg);
+}
+
+.tag-btn:hover {
+    border-color: #4CAEE3;
+    background: #F3F4F6;
+    transform: skewX(-5deg) translateY(-1px);
+}
+
+.tag-btn.selected {
+    background: #4CAEE3;
+    color: white;
+    border-color: #4CAEE3;
+    box-shadow: 0 2px 8px rgba(74, 174, 227, 0.3);
+}
+
+.tag-btn.selected:hover {
+    background: #3B9DD3;
+}
+
+/* ============================================
+   END ONBOARDING SKEWED BUTTONS
+   ============================================ */

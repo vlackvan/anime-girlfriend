@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Character } from '../personality/types';
 
 interface OnboardingProps {
@@ -59,6 +59,15 @@ const CrystallineRightPattern: React.FC = () => (
 
 export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => {
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+    const [showCinematicOverlay, setShowCinematicOverlay] = useState(true);
+
+    // Hide cinematic overlay after 3 seconds
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setShowCinematicOverlay(false);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleCharacterClick = (character: Character) => {
         setSelectedCharacter(character);
@@ -72,6 +81,13 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
 
     return (
         <div className="onboarding-fullscreen">
+            {/* Cinematic Intro Overlay */}
+            {showCinematicOverlay && (
+                <div className="cinematic-overlay">
+                    <h1 className="cinematic-title">당신의 코딩을 같이할 여자친구를 골라보세요</h1>
+                </div>
+            )}
+
             {/* Full-screen side-by-side character images */}
             <div className="character-carousel">
                 <div
@@ -114,15 +130,19 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
                         <CrystallineRightPattern />
                         <div className="popup-content">
                             <p>{characterInfo[selectedCharacter].description}</p>
-                            <button
-                                className="select-character-btn popup-select-btn"
-                                onClick={handleConfirmSelection}
-                            >
-                                <span>선택하기</span>
-                            </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Select button - fixed at bottom right, only appears when character is selected */}
+            {selectedCharacter && (
+                <button
+                    className="select-character-btn"
+                    onClick={handleConfirmSelection}
+                >
+                    <span>선택하기</span>
+                </button>
             )}
         </div>
     );
