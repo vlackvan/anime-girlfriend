@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Character, UserProfile } from '../personality/types';
+import { BongoCat } from './BongoCat';
 
 interface Message {
     id: string;
@@ -182,8 +183,9 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     };
 
     return (
-        <div className="chat">
-            <div className="chat-header">
+        <div className="chat-wrapper">
+            <div className="chat">
+                <div className="chat-header">
                 <div className="chat-title">🍑MomoTalk</div>
                 <div className="chat-header-info">
                     <img
@@ -288,6 +290,8 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     </button>
                 </div>
             </div>
+            </div>
+            <BongoCat />
         </div>
     );
 };

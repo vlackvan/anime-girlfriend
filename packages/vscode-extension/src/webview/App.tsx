@@ -14,6 +14,9 @@ declare global {
         assetBaseUri: {
             aru: string;
             chihiro: string;
+            bongoIdle: string;
+            bongoLeft: string;
+            bongoRight: string;
         };
     }
 }

@@ -54,6 +54,15 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.registerWebviewViewProvider('anime-girlfriend.chat', chatPanel)
     );
 
+    // Intercept type command to trigger bongo cat animation
+    const typeCommand = vscode.commands.registerCommand('type', async (...args) => {
+        // Trigger bongo cat animation in webview
+        chatPanel.triggerBongoCat();
+        // Pass the keystroke to VS Code so the user can actually type
+        return vscode.commands.executeCommand('default:type', ...args);
+    });
+    context.subscriptions.push(typeCommand);
+
     // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand('anime-girlfriend.showChat', async () => {

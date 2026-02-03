@@ -86,6 +86,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         });
     }
 
+    // Method to trigger bongo cat animation from type command
+    triggerBongoCat() {
+        this.postMessage({
+            type: 'bongoCatStroke'
+        });
+    }
+
     private async sendInitialState() {
         const profile = this.userDataStore.loadProfile();
         const hasApiKey = await this.apiKeyManager.hasApiKey();
@@ -315,6 +322,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const chihiroImageUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.png')
         );
+        const bongoIdleUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_middle.png')
+        );
+        const bongoLeftUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_left.png')
+        );
+        const bongoRightUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_right.png')
+        );
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -331,7 +347,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   <script>
     window.assetBaseUri = {
       aru: "${aruImageUri}",
-      chihiro: "${chihiroImageUri}"
+      chihiro: "${chihiroImageUri}",
+      bongoIdle: "${bongoIdleUri}",
+      bongoLeft: "${bongoLeftUri}",
+      bongoRight: "${bongoRightUri}"
     };
     window.vscode = acquireVsCodeApi();
   </script>
