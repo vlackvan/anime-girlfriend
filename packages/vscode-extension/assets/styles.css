@@ -2166,3 +2166,200 @@ body {
 /* ============================================
    END ONBOARDING SKEWED BUTTONS
    ============================================ */
+
+/* ============================================
+   PROBLEM SOLVED - MAGICAL CRYSTAL THEME
+   ============================================ */
+
+/* Full Screen Portrait Background */
+.overlay.overlay-portrait {
+    background: #000;
+    /* Fallback */
+    padding: 0;
+    overflow: hidden;
+}
+
+.portrait-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    opacity: 0.9;
+    /* Slight dim if needed, or full opacity */
+    animation: portraitFadeIn 1s ease-out;
+}
+
+@keyframes portraitFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(1.05);
+    }
+
+    to {
+        opacity: 0.9;
+        transform: scale(1);
+    }
+}
+
+/* Crystal Banner Container */
+.crystal-banner {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 800px;
+    /* Wide banner */
+    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    /* Constructing the crystal shape/background */
+    background: radial-gradient(circle at center, rgba(220, 240, 255, 0.9) 0%, rgba(100, 180, 255, 0.4) 40%, rgba(20, 40, 80, 0.8) 80%, rgba(10, 20, 40, 0.95) 100%),
+        linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0.0) 50%),
+        linear-gradient(-45deg, transparent 40%, rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0.0) 50%);
+    box-shadow: 0 0 50px rgba(74, 174, 227, 0.3), inset 0 0 100px rgba(0, 0, 0, 0.5);
+    border-top: 2px solid rgba(255, 255, 255, 0.4);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(5px);
+    margin-top: 10vh;
+    /* Position slightly from center if needed, or centered */
+    clip-path: polygon(0 10%, 100% 0, 100% 90%, 0 100%);
+    /* Slight skew/crystal cut feel */
+    animation: bannerSlideIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes bannerSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+        clip-path: polygon(0 40%, 100% 40%, 100% 60%, 0 60%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        clip-path: polygon(0 10%, 100% 0, 100% 90%, 0 100%);
+    }
+}
+
+/* Crystal Facets overlay (simulated with gradients) */
+.crystal-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%),
+        repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 2px, transparent 2px, transparent 40px);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Text Styling */
+.crystal-banner h1 {
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-size: 4rem;
+    /* Large and bold */
+    font-weight: 800;
+    color: #004e92;
+    /* Solid medium blue */
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(74, 174, 227, 0.5);
+    margin: 0;
+    z-index: 2;
+    letter-spacing: 2px;
+    animation: textPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.3s backwards;
+}
+
+.crystal-banner h2.result-text {
+    font-size: 1.5rem;
+    color: #1e3a8a;
+    font-weight: 600;
+    margin-top: 10px;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+    z-index: 2;
+}
+
+@keyframes textPop {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Floating Particles */
+.particles-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.particle {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 10px solid rgba(255, 255, 255, 0.8);
+    filter: blur(1px);
+    opacity: 0;
+    animation: particleFloat 3s infinite ease-in-out;
+}
+
+/* Generate multiple particle animations */
+@keyframes particleFloat {
+    0% {
+        transform: translateY(20px) rotate(0deg) scale(0);
+        opacity: 0;
+    }
+
+    20% {
+        opacity: 0.8;
+    }
+
+    80% {
+        opacity: 0.4;
+    }
+
+    100% {
+        transform: translateY(-40px) rotate(360deg) scale(1);
+        opacity: 0;
+    }
+}
+
+/* Success Message inside Banner */
+.crystal-banner .congrats-message {
+    color: #0f172a;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 10px 20px;
+    border-radius: 20px;
+    max-width: 80%;
+    margin-top: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 2;
+}
+
+/* Stat items in banner */
+.crystal-banner .judge-info .info-item {
+    background: rgba(255, 255, 255, 0.5);
+    color: #1e3a8a;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    font-weight: 700;
+}
+
+/* Tap Hint Modification for Crystal Theme */
+.crystal-banner .tap-hint {
+    color: rgba(30, 58, 138, 0.7);
+    text-shadow: none;
+    margin-top: 20px;
+    font-weight: 600;
+}
