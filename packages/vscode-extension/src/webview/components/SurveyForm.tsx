@@ -302,12 +302,12 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                         {solvedacData && (
                             <div className="stats-preview" style={{
                                 padding: '16px',
-                                background: 'rgba(74, 222, 128, 0.1)',
-                                border: '1px solid #4ade80',
+                                background: 'rgba(74, 174, 227, 0.1)',
+                                border: '1px solid #4CAEE3',
                                 borderRadius: '8px',
                                 fontSize: '0.9rem'
                             }}>
-                                <strong>✅ 연동 성공!</strong>
+                                <strong>연동 성공!</strong>
                                 <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
                                     <li>핸들: {solvedacData.handle}</li>
                                     <li>티어: {solvedacData.tier}</li>

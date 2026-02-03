@@ -168,6 +168,24 @@ body {
     background: rgba(74, 174, 227, 0.5);
 }
 
+/* Form Labels - Dark Navy Color */
+.form-group label,
+.demographics-form label,
+.manual-input label,
+.essay-questions label,
+.solvedac-choice .choice-btn strong,
+.choice-btn strong {
+    color: #233045 !important;
+    font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
+    font-weight: 700;
+}
+
+/* Subtitle text in choice buttons */
+.choice-btn .subtitle,
+.solvedac-choice .choice-btn .subtitle {
+    color: #4B5563;
+}
+
 /* ============================================
    END ONBOARDING LAYOUT
    ============================================ */
@@ -438,6 +456,56 @@ body {
 
 /* ============================================
    END CHARACTER SELECTION POPUP BOX
+   ============================================ */
+
+/* ============================================
+   CHARACTER SELECTION - Side-by-Side Panels
+   ============================================ */
+.character-carousel {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+}
+
+.character-panel {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    filter: grayscale(50%);
+    opacity: 0.7;
+    transition: all 0.4s ease;
+    background: linear-gradient(180deg, #F3F5F9 0%, #E8EDF5 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.character-panel:hover {
+    filter: grayscale(20%);
+    opacity: 0.9;
+}
+
+.character-panel.selected {
+    filter: grayscale(0);
+    opacity: 1;
+    box-shadow: inset 0 0 80px rgba(74, 174, 227, 0.2);
+}
+
+.character-panel .character-portrait {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.4s ease;
+}
+
+.character-panel.selected .character-portrait {
+    transform: scale(1.02);
+}
+
+/* ============================================
+   END CHARACTER SELECTION
    ============================================ */
 
 /* Legacy Character Header Bar - kept for reference */
@@ -1828,7 +1896,7 @@ body {
     font-family: 'GyeonggiTitleM', var(--vscode-font-family), sans-serif;
     font-size: 1.2rem;
     font-weight: 700;
-    color: #4CAEE3;
+    color: #233045;
     text-align: center;
 }
 
