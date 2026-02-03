@@ -28,6 +28,12 @@ export interface StoredUserProfile {
 }
 
 const PROFILE_KEY = 'anime-girlfriend.userProfile';
+const HINT_LEVELS_KEY = 'anime-girlfriend.hintLevels';
+
+// Problem-specific hint levels (0 = no hint, 1 = idea, 2 = algorithm, 3 = pseudocode, 4 = code)
+export interface ProblemHintLevels {
+    [problemId: string]: number;
+}
 
 export class UserDataStore {
     private globalState: vscode.Memento;
@@ -85,6 +91,43 @@ export class UserDataStore {
      */
     async clearProfile(): Promise<void> {
         await this.globalState.update(PROFILE_KEY, undefined);
+        await this.globalState.update(HINT_LEVELS_KEY, undefined);
         console.log('[UserDataStore] Profile cleared');
+    }
+
+    /**
+     * Get hint level for a specific problem
+     * @param problemId - BOJ problem ID
+     * @returns Current hint level (0-4)
+     */
+    getHintLevel(problemId: string): number {
+        const hintLevels = this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
+        return hintLevels[problemId] || 0;
+    }
+
+    /**
+     * Increment hint level for a problem
+     * @param problemId - BOJ problem ID
+     * @returns New hint level
+     */
+    async incrementHintLevel(problemId: string): Promise<number> {
+        const hintLevels = this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
+        const currentLevel = hintLevels[problemId] || 0;
+        const newLevel = Math.min(currentLevel + 1, 4); // Max level is 4
+        hintLevels[problemId] = newLevel;
+        await this.globalState.update(HINT_LEVELS_KEY, hintLevels);
+        console.log(`[UserDataStore] Hint level for problem ${problemId}: ${currentLevel} → ${newLevel}`);
+        return newLevel;
+    }
+
+    /**
+     * Reset hint level for a problem (when problem is solved)
+     * @param problemId - BOJ problem ID
+     */
+    async resetHintLevel(problemId: string): Promise<void> {
+        const hintLevels = this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
+        delete hintLevels[problemId];
+        await this.globalState.update(HINT_LEVELS_KEY, hintLevels);
+        console.log(`[UserDataStore] Hint level reset for problem ${problemId}`);
     }
 }

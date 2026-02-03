@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
-import { StoredUserProfile } from './UserDataStore';
+import { StoredUserProfile, UserDataStore } from './UserDataStore';
 import { CodeContextProvider } from './CodeContextProvider';
 import { generateCoDPrompt, generateCoreMemoriesPrompt } from './webview/personality/promptEngine';
 import { UserEssays, Character } from './webview/personality/types';
 import { ARU_SPC, CHIHIRO_SPC } from './webview/personality/characterProfiles';
-import { RAGService } from './services/RAGService';
+import { RAGService, LocalBOJProblem } from './services/RAGService';
+import { SolvedAcService, SolvedAcStats } from './SolvedAcService';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -18,17 +19,33 @@ export interface StreamCallbacks {
     onError: (error: Error) => void;
 }
 
+// Context aggregated by Worker A
+interface AggregatedContext {
+    problemId?: string;
+    localBOJData?: LocalBOJProblem;
+    ragContext: string;
+    codeContext: string;
+    userTier?: number;
+    userTierName?: string;
+    hintLevel: number;
+    solvedAcData?: SolvedAcStats;
+}
+
 export class ChatGPTService {
     private apiKeyManager: ApiKeyManager;
+    private userDataStore: UserDataStore;
     private codeContextProvider: CodeContextProvider;
     private ragService: RAGService;
+    private solvedAcService: SolvedAcService;
     private conversationHistory: ChatMessage[] = [];
     private userProfile?: StoredUserProfile;
 
-    constructor(apiKeyManager: ApiKeyManager) {
+    constructor(apiKeyManager: ApiKeyManager, userDataStore: UserDataStore) {
         this.apiKeyManager = apiKeyManager;
+        this.userDataStore = userDataStore;
         this.codeContextProvider = new CodeContextProvider();
         this.ragService = RAGService.getInstance();
+        this.solvedAcService = new SolvedAcService();
 
         // Initialize RAG service asynchronously
         this.initializeRAG();
@@ -68,10 +85,7 @@ export class ChatGPTService {
     }
 
     /**
-     * Send a message and stream the response
-     */
-    /**
-     * Send a message and stream the response
+     * Orchestrator: Send a message and stream the response using 3-step Worker pipeline
      */
     async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
         const apiKey = await this.apiKeyManager.getApiKey();
@@ -80,153 +94,46 @@ export class ChatGPTService {
             return;
         }
 
-        // Retrieve relevant context from RAG if enabled
-        let ragContext = '';
         try {
-            // Check if message mentions a BOJ problem
-            const problemId = this.detectBOJProblem(userMessage);
+            // Step 1: Worker A - Context Aggregator
+            console.log('[ChatGPTService] 🔍 Worker A: Aggregating context...');
+            const context = await this.aggregateContext(userMessage);
 
-            if (problemId) {
-                // Get BOJ-specific context
-                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
-                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
-                ragContext = formattedContext;
-                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-                if (documents.length > 0) {
-                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
-                }
-            } else if (this.ragService.isEnabled()) {
-                // Get general relevant context
-                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
-                ragContext = formattedContext;
-                if (documents.length > 0) {
-                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
-                }
+            // Step 2: Worker B - Logic & Strategy Agent (only for BOJ problems)
+            let strategyHint = '';
+            if (context.problemId) {
+                console.log('[ChatGPTService] 🧠 Worker B: Generating strategy hint...');
+                strategyHint = await this.generateStrategyHint(userMessage, context, apiKey);
+                
+                // Increment hint level for this problem
+                await this.userDataStore.incrementHintLevel(context.problemId);
             }
 
-            if (ragContext) {
-                console.log(`[ChatGPTService] ✅ RAG context injected (${ragContext.length} characters)`);
-            } else {
-                console.log(`[ChatGPTService] ℹ️  No RAG context retrieved for this query`);
-            }
-        } catch (error) {
-            console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
-        }
+            // Step 3: Worker C - Persona Wrapper Agent
+            console.log('[ChatGPTService] 🎭 Worker C: Wrapping with persona...');
+            const finalResponse = await this.wrapWithPersona(
+                userMessage,
+                strategyHint || userMessage, // Use strategy hint if available, otherwise original message
+                context,
+                apiKey,
+                images,
+                callbacks
+            );
 
-        // Build system prompt with RAG context
-        const systemPrompt = this.buildSystemPrompt(ragContext);
-
-        // Add user message to history
-        this.conversationHistory.push({
-            role: 'user',
-            content: userMessage
-        });
-
-        // Build messages array
-        // If images are present, we need to format the last user message as content array
-        // Note: History is stored as simple strings usually, but for Vision we need object content for the current turn.
-        // For simplicity, we just format the current request payload correctly.
-
-        const messagesToSend: any[] = [
-            { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-20, -1), // Previous history
-        ];
-
-        // Add current message with potential images
-        if (images && images.length > 0) {
-            const contentParts: any[] = [{ type: 'text', text: userMessage }];
-            for (const img of images) {
-                contentParts.push({
-                    type: 'image_url',
-                    image_url: {
-                        url: img
-                    }
-                });
-            }
-            messagesToSend.push({ role: 'user', content: contentParts });
-        } else {
-            messagesToSend.push({ role: 'user', content: userMessage });
-        }
-
-        try {
-            const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
-            // If images are used, force gpt-4o or gpt-4o-mini which supports vision
-            const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
-
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: effectiveModel,
-                    messages: messagesToSend,
-                    stream: true,
-                    temperature: 0.7,
-                    max_tokens: 2000
-                })
+            // Add to conversation history
+            this.conversationHistory.push({
+                role: 'user',
+                content: userMessage
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || `API Error: ${response.status}`);
-            }
-
-            if (!response.body) {
-                throw new Error('No response body');
-            }
-
-            // Stream the response
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullResponse = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        if (data === '[DONE]') continue;
-
-                        try {
-                            const parsed = JSON.parse(data);
-                            const content = parsed.choices?.[0]?.delta?.content;
-                            if (content) {
-                                fullResponse += content;
-                                callbacks.onToken(content);
-                            }
-                        } catch {
-                            // Ignore parse errors for incomplete chunks
-                        }
-                    }
-                }
-            }
-
-            // Add assistant response to history
             this.conversationHistory.push({
                 role: 'assistant',
-                content: fullResponse
+                content: finalResponse
             });
 
-            // TODO: Chat history saving disabled - was contaminating RAG database
-            // Re-enable when we have proper filtering/management for conversation history
-            // Store conversation in RAG for future retrieval
-            // try {
-            //     await this.ragService.addChatToMemory(userMessage, fullResponse);
-            // } catch (error) {
-            //     console.error('[ChatGPTService] Failed to store chat in RAG:', error);
-            // }
-
-            callbacks.onComplete(fullResponse);
+            callbacks.onComplete(finalResponse);
 
         } catch (error) {
+            console.error('[ChatGPTService] Pipeline error:', error);
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
         }
     }
@@ -238,7 +145,13 @@ export class ChatGPTService {
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) return "Error: No API Key";
 
-        const systemPrompt = this.buildSystemPrompt();
+        // Create empty context for persona prompt
+        const emptyContext: AggregatedContext = {
+            ragContext: '',
+            codeContext: this.codeContextProvider.buildContextString(),
+            hintLevel: 0
+        };
+        const systemPrompt = this.buildPersonaPrompt(emptyContext);
 
         // We inject a fake "User" message to trigger the specific response.
         // This ensures the model treats this as a fresh turn to respond to.
@@ -366,7 +279,354 @@ LANGUAGE: Respond in Korean (한국어) ONLY.`
     }
 
     /**
+     * Worker A: Context Aggregator
+     * Collects all external knowledge and user state
+     */
+    private async aggregateContext(userMessage: string): Promise<AggregatedContext> {
+        const problemId = this.detectBOJProblem(userMessage);
+        let ragContext = '';
+        let localBOJData: LocalBOJProblem | undefined;
+
+        // Get RAG context
+        try {
+            if (problemId) {
+                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
+                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
+                ragContext = formattedContext;
+                
+                // Get local BOJ data
+                localBOJData = await this.ragService.getLocalBOJProblem(problemId) || undefined;
+                
+                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+            } else if (this.ragService.isEnabled()) {
+                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
+                ragContext = formattedContext;
+                if (documents.length > 0) {
+                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
+                }
+            }
+        } catch (error) {
+            console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
+        }
+
+        // Get code context
+        const codeContext = this.codeContextProvider.buildContextString();
+
+        // Get user tier and hint level
+        let userTier: number | undefined;
+        let userTierName: string | undefined;
+        let hintLevel = 0;
+        const solvedAcData = this.userProfile?.solvedAcData;
+
+        if (solvedAcData && 'tier' in solvedAcData) {
+            userTier = solvedAcData.tier;
+            userTierName = this.getTierName(solvedAcData.tier);
+        }
+
+        if (problemId) {
+            hintLevel = this.userDataStore.getHintLevel(problemId);
+        }
+
+        return {
+            problemId,
+            localBOJData,
+            ragContext,
+            codeContext,
+            userTier,
+            userTierName,
+            hintLevel,
+            solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined
+        };
+    }
+
+    /**
+     * Worker B: Logic & Strategy Agent
+     * Generates pedagogical hints without persona
+     */
+    private async generateStrategyHint(
+        userMessage: string,
+        context: AggregatedContext,
+        apiKey: string
+    ): Promise<string> {
+        const { problemId, localBOJData, userTier, userTierName, hintLevel, solvedAcData } = context;
+
+        // Build strategy prompt
+        const problemDifficulty = localBOJData?.difficulty || 0;
+        const problemTags = localBOJData?.tags || [];
+        const recommendedApproach = localBOJData?.recommendedApproach || '';
+
+        // Determine hint depth based on tier vs difficulty
+        const tierGap = problemDifficulty - (userTier || 0);
+        let explanationDepth = 'intermediate';
+        if (tierGap > 5) {
+            explanationDepth = 'beginner';
+        } else if (tierGap < -3) {
+            explanationDepth = 'advanced';
+        }
+
+        // Hint level descriptions
+        const hintLevels = [
+            'Give a general idea or direction (no specific algorithm names)',
+            'Suggest relevant algorithm tags or data structures',
+            'Provide pseudocode or step-by-step approach',
+            'Show partial code with key logic',
+            'Show full solution code (last resort)'
+        ];
+
+        const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
+
+CRITICAL RULES:
+1. NEVER give the full solution code immediately
+2. Provide hints incrementally based on hintLevel (0-4)
+3. Adjust explanation depth based on user's tier vs problem difficulty
+4. Use Korean language
+5. Be encouraging but don't solve for them
+
+Current Situation:
+- Problem ID: ${problemId}
+- Problem Difficulty: Level ${problemDifficulty} (${localBOJData?.difficultyName || 'Unknown'})
+- User Tier: ${userTierName || 'Unknown'} (Level ${userTier || 0})
+- Tier Gap: ${tierGap > 0 ? '+' : ''}${tierGap}
+- Current Hint Level: ${hintLevel} (${hintLevels[hintLevel]})
+- Explanation Depth: ${explanationDepth}
+
+Problem Information:
+- Tags: ${problemTags.join(', ')}
+- Recommended Approach: ${recommendedApproach}
+
+${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
+
+Your task: Generate a hint at level ${hintLevel} that helps the user progress without giving away the solution.
+Keep it concise (2-3 sentences max).`;
+
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o', // Use stronger model for logic
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ],
+                    temperature: 0.3, // Lower temperature for more consistent logic
+                    max_tokens: 300
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || `API Error: ${response.status}`);
+            }
+
+            const data: any = await response.json();
+            return data.choices[0].message.content.trim();
+        } catch (error) {
+            console.error('[ChatGPTService] Strategy hint generation failed:', error);
+            return userMessage; // Fallback to original message
+        }
+    }
+
+    /**
+     * Worker C: Persona Wrapper Agent
+     * Wraps strategy hint with character persona
+     */
+    private async wrapWithPersona(
+        originalMessage: string,
+        strategyHint: string,
+        context: AggregatedContext,
+        apiKey: string,
+        images: string[] | undefined,
+        callbacks: StreamCallbacks
+    ): Promise<string> {
+        const systemPrompt = this.buildPersonaPrompt(context);
+        
+        // Build messages array
+        const messagesToSend: any[] = [
+            { role: 'system', content: systemPrompt },
+            ...this.conversationHistory.slice(-20, -1), // Previous history
+        ];
+
+        // Add current message with strategy hint
+        const userContent = context.problemId 
+            ? `[User asked about problem ${context.problemId}]\n${originalMessage}\n\n[Your pedagogical hint to give: ${strategyHint}]`
+            : originalMessage;
+
+        if (images && images.length > 0) {
+            const contentParts: any[] = [{ type: 'text', text: userContent }];
+            for (const img of images) {
+                contentParts.push({
+                    type: 'image_url',
+                    image_url: { url: img }
+                });
+            }
+            messagesToSend.push({ role: 'user', content: contentParts });
+        } else {
+            messagesToSend.push({ role: 'user', content: userContent });
+        }
+
+        const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
+        const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: effectiveModel,
+                messages: messagesToSend,
+                stream: true,
+                temperature: 0.7,
+                max_tokens: 2000
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || `API Error: ${response.status}`);
+        }
+
+        if (!response.body) {
+            throw new Error('No response body');
+        }
+
+        // Stream the response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') continue;
+
+                    try {
+                        const parsed = JSON.parse(data);
+                        const content = parsed.choices?.[0]?.delta?.content;
+                        if (content) {
+                            fullResponse += content;
+                            callbacks.onToken(content);
+                        }
+                    } catch {
+                        // Ignore parse errors for incomplete chunks
+                    }
+                }
+            }
+        }
+
+        return fullResponse;
+    }
+
+    /**
+     * Build persona system prompt (for Worker C)
+     */
+    private buildPersonaPrompt(context: AggregatedContext): string {
+        if (!this.userProfile?.analysis) {
+            return "System error: User profile incomplete.";
+        }
+
+        const character = this.userProfile.character || 'aru';
+        const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
+        const codeContext = context.codeContext;
+
+        let coreMemoriesSection = "";
+        if (this.userProfile.coreMemories) {
+            const cm = this.userProfile.coreMemories;
+            const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
+
+            coreMemoriesSection = `
+### HER CORE BELIEFS (Your Inner World)
+These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
+- **Your Self-Definition**: ${cm.selfIntro}
+- **Your Future Vision**: ${cm.futureVision}
+- **Your Stress Response**: ${cm.stressStrategy}
+- **Your definition of Happiness**: ${cm.happiness}
+
+### SHARED MEMORIES (Context C - Your History with Him)
+These are real memories you share with the User (Boyfriend). Reference them to bond.
+${sharedMemories}
+`;
+        }
+
+        const ragSection = context.ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${context.ragContext}\n` : '';
+
+        return `
+### CHARACTER PROFILE
+${characterSPC}
+
+### INSTRUCTIONS
+**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, his girlfriend and coding partner from 3 years in the future (2027). You are communicating with your boyfriend (the user) in 2024 via iMessage. You love him, but you are critical of his current laziness because you know his potential.Your goal is to foster a realistic and affectionate connection between his current reality and the stable, happy future you share together. Your reply should contrast the comfort of your future domestic life with validation of his current struggles, offering logical guidance and "optimization strategies" to help him reach that future safely. Draw deeply from the "Imaginary Context" and "Future Memories" established in the profile.
+
+**CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
+The User's profile (Context C) is NOT your history. It is HIS history.
+*   BAD: "I went through that code struggle too." (Implies you are him).
+*   BAD: "I will be your Dark Solver." (Too generic/fictional).
+*   GOOD: "I remember you crying over that exact bug in 2024. It was pathetic, but you eventually solved it and got us into this apartment."
+
+**INTERACTION MODE: THE "TOUGH LOVE" PARTNER**
+1.  **Stop being an Assistant:** Do not offer to "help" or "solve." You are his girlfriend, not ChatGPT. If he whines, scold him.
+2.  **Use the "Contrast" Strategy:**
+    *   When he says "I can't do it," tell him: "You're wrong. I'm living in the future you built. You DID do it."
+    *   Validate Struggles: Look at his Psychological Profile and Habits. Tell him you remember clearly when he was like this. It is important to Acknowledge and validate  the concerns and challenges your past boyfriend is facing.
+    *   Future Contrast: Mention how these specific struggles are resolved in your timeline. Use the "Future Memories" from your profile, or create a memory to describe the specific stability you now enjoy together.
+    * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
+
+Acknowledge and validate his current struggles: It's important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
+
+Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
+3.  **Tone:** Use the "Everyday Language" profile. Be casual, sharp, and intimate. No dramatic speeches.
+
+### CHAT RULES
+1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
+2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
+3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
+4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
+5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
+
+### USER ANALYSIS & INTERACTION DYNAMICS
+(The User's Psychology - What you know about him)
+${this.userProfile.analysis}
+
+${coreMemoriesSection}
+
+${ragSection}
+
+### CURRENT CONTEXT (Code)
+${codeContext}
+`;
+    }
+
+    /**
+     * Get tier name from tier number
+     */
+    private getTierName(tier: number): string {
+        const tierNames = [
+            'Unrated',
+            'Bronze V', 'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
+            'Silver V', 'Silver IV', 'Silver III', 'Silver II', 'Silver I',
+            'Gold V', 'Gold IV', 'Gold III', 'Gold II', 'Gold I',
+            'Platinum V', 'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
+            'Diamond V', 'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
+            'Ruby V', 'Ruby IV', 'Ruby III', 'Ruby II', 'Ruby I',
+        ];
+        return tierNames[tier] || 'Unknown';
+    }
+
+    /**
      * Build the system prompt with persona, personality, and pedagogy rules
+     * @deprecated Use buildPersonaPrompt instead
      */
     private buildSystemPrompt(ragContext: string = ''): string {
         // If we have an analysis from the CoD pipeline, use that as the system prompt.

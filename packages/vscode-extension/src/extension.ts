@@ -18,7 +18,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const userDataStore = new UserDataStore(context.globalState);
 
     // Initialize ChatGPT Service
-    const chatGPTService = new ChatGPTService(apiKeyManager);
+    const chatGPTService = new ChatGPTService(apiKeyManager, userDataStore);
 
     // Load saved profile and set it in ChatGPT service
     const savedProfile = userDataStore.loadProfile();
@@ -30,6 +30,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize RAG services
     const ragService = RAGService.getInstance();
     const ingestionService = IngestionService.getInstance();
+
+    // Set extension path for local BOJ data access
+    ragService.setExtensionPath(context.extensionPath);
 
     // Initialize RAG system
     initializeRAG(ragService, ingestionService, context.extensionPath);
