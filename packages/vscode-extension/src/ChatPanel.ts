@@ -310,27 +310,34 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
 
     private getHtmlContent(webview: vscode.Webview): string {
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'out', 'webview.js')
-        );
-        const styleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'styles.css')
-        );
-        const aruImageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'aru.png')
-        );
-        const chihiroImageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.png')
-        );
-        const bongoIdleUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_middle.png')
-        );
-        const bongoLeftUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_left.png')
-        );
-        const bongoRightUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_right.png')
-        );
+        try {
+            const scriptUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'out', 'webview.js')
+            );
+            const styleUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'styles.css')
+            );
+            const aruImageUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'aru.png')
+            );
+            const chihiroImageUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.png')
+            );
+            const bongoIdleUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_middle.png')
+            );
+            const bongoLeftUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_left.png')
+            );
+            const bongoRightUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_right.png')
+            );
+            const loadingImageUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'loading.png')
+            );
+
+            console.log('[ChatPanel] Extension URI:', this.extensionUri.toString());
+            console.log('[ChatPanel] Script URI:', scriptUri.toString());
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -350,13 +357,30 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       chihiro: "${chihiroImageUri}",
       bongoIdle: "${bongoIdleUri}",
       bongoLeft: "${bongoLeftUri}",
-      bongoRight: "${bongoRightUri}"
+      bongoRight: "${bongoRightUri}",
+      loading: "${loadingImageUri}"
     };
     window.vscode = acquireVsCodeApi();
   </script>
   <script src="${scriptUri}"></script>
 </body>
 </html>`;
+        } catch (error) {
+            console.error('[ChatPanel] Error generating HTML content:', error);
+            // Return a minimal error page if URI generation fails
+            return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Anime Girlfriend - Error</title>
+</head>
+<body>
+  <h1>Extension Error</h1>
+  <p>Failed to load webview. Please check the Developer Console for details.</p>
+  <pre>${error instanceof Error ? error.message : 'Unknown error'}</pre>
+</body>
+</html>`;
+        }
     }
 }
 

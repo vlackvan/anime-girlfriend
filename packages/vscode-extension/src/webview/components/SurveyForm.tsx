@@ -174,9 +174,15 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
     if (analyzing) {
         return (
             <div className="onboarding">
-                <h1>성격 프로필 생성 중...</h1>
-                <p>AI가 당신의 성격을 분석하고 있습니다...</p>
-                <p className="subtitle">SPeCtrum 프레임워크 분석 중 (약 10-15초 소요)</p>
+                <div className="loading-container">
+                    <img
+                        src={(window as any).assetBaseUri.loading}
+                        alt="Analyzing"
+                        className="loading-image"
+                    />
+                    <h1 className="loading-text">성격 프로필 생성 중...</h1>
+                    <p className="loading-subtitle">SPeCtrum 프레임워크 분석 중 (약 10-15초 소요)</p>
+                </div>
             </div>
         );
     }

@@ -17,6 +17,7 @@ declare global {
             bongoIdle: string;
             bongoLeft: string;
             bongoRight: string;
+            loading: string;
         };
     }
 }
@@ -148,7 +149,14 @@ export const App: React.FC = () => {
     if (step === 'loading') {
         return (
             <div className="app loading">
-                <div className="loading-spinner">Loading...</div>
+                <div className="loading-container">
+                    <img
+                        src={window.assetBaseUri.loading}
+                        alt="Loading"
+                        className="loading-image"
+                    />
+                    <div className="loading-text">Loading...</div>
+                </div>
             </div>
         );
     }
