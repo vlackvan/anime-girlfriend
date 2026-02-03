@@ -44,10 +44,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Initialize Local Server for BOJ signals
     const port = vscode.workspace.getConfiguration('anime-girlfriend').get('serverPort', 3000);
-    const localServer = new LocalServer(port, (data) => {
-        console.log('[Anime Girlfriend] BOJ Judge Result:', data);
-        chatPanel.showJudgeResult(data);
-    });
+    const localServer = new LocalServer(
+        port,
+        (data) => {
+            console.log('[Anime Girlfriend] BOJ Judge Result:', data);
+            chatPanel.showJudgeResult(data);
+        },
+        () => {
+            const profile = userDataStore.loadProfile();
+            return profile?.character;
+        }
+    );
 
     // Register webview provider
     context.subscriptions.push(

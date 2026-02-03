@@ -1846,14 +1846,12 @@ body {
 
 /* Bongo Cat Container */
 .bongo-cat-container {
-    height: 40%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-    border-top: 2px solid rgba(255, 107, 157, 0.3);
     overflow: hidden;
-    flex-shrink: 0;
 }
 
 .bongo-cat-image {
@@ -1863,14 +1861,99 @@ body {
     display: block;
 }
 
+/* ============================================
+   BONGO CAT TOGGLE SECTION
+   ============================================ */
+
+/* Collapsible Bongo Cat Section */
+.bongo-cat-section {
+    overflow: hidden;
+    border-top: 2px solid rgba(255, 107, 157, 0.3);
+    flex-shrink: 0;
+}
+
+.bongo-cat-section.open {
+    height: 40%;
+}
+
+.bongo-cat-section.closed {
+    height: 0;
+    border-top: none;
+}
+
+/* Toggle Button */
+.bongo-toggle-btn {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 15px;
+    background: linear-gradient(135deg, #3a3a3a 0%, #2d2d2d 100%);
+    border: 1px solid rgba(255, 107, 157, 0.4);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.bongo-toggle-btn:hover {
+    background: linear-gradient(135deg, #4a4a4a 0%, #3d3d3d 100%);
+    border-color: rgba(255, 107, 157, 0.7);
+    color: white;
+}
+
+.bongo-toggle-btn svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.3s ease;
+    stroke-width: 3;
+}
+
+/* When bongo cat is closed, keep button at bottom */
+.chat-wrapper.bongo-closed .bongo-toggle-btn {
+    bottom: 0;
+    transform: translateX(-50%);
+}
+
+/* Adjust chat to fill space when bongo is closed */
+.chat-wrapper.bongo-closed .chat {
+    flex: 1;
+    height: 100%;
+}
+
+/* ============================================
+   END BONGO CAT TOGGLE SECTION
+   ============================================ */
+
 /* Loading Animation */
 .loading-container {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     gap: 20px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    overflow: hidden;
+}
+
+/* Gems Pattern - Bottom Right */
+.loading-gems-pattern {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    height: 300px;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.9;
 }
 
 .loading-image {

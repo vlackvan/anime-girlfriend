@@ -79,6 +79,111 @@ function extractSubmissionInfo(row) {
     }
 }
 
+// 전체 화면 축하 영상 재생
+function playFullScreenCelebration(characterName = 'aru') {
+    try {
+        // 캐릭터별 비디오 설정
+        const characters = {
+            'aru': { name: 'aru', video: 'arusolved.mp4', duration: 2000 },
+            'chihiro': { name: 'chihiro', video: 'chihirosolve.mp4', duration: 4000 }
+        };
+        const selectedChar = characters[characterName] || characters['aru'];
+
+        console.log(`🎉🎉🎉 축하합니다! ${selectedChar.name} 영상 재생 시작!`);
+
+        // 전체 화면 오버레이 생성
+        const overlay = document.createElement('div');
+        overlay.id = 'boj-celebration-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // 비디오 요소 생성
+        const video = document.createElement('video');
+        video.style.cssText = `
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        `;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = false; // Try with sound first
+
+        const videoUrl = chrome.runtime.getURL(`public/${selectedChar.video}`);
+        console.log(`📹 비디오 URL: ${videoUrl}`);
+        video.src = videoUrl;
+
+        // 비디오 로드 및 재생 이벤트
+        video.addEventListener('loadeddata', () => {
+            console.log(`✅ 비디오 로드 완료: ${selectedChar.name}`);
+        });
+
+        video.addEventListener('playing', () => {
+            console.log(`▶️ 비디오 재생 중: ${selectedChar.name}`);
+        });
+
+        video.addEventListener('error', (e) => {
+            console.error(`❌ 비디오 로드 실패:`, e, video.error);
+            // 실패시 오버레이라도 제거
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        });
+
+        overlay.appendChild(video);
+        document.body.appendChild(overlay);
+        console.log(`📺 오버레이가 DOM에 추가되었습니다`);
+
+        // 비디오 재생 시도 (autoplay가 실패할 경우 대비)
+        video.play().then(() => {
+            console.log(`✨ 비디오 재생 시작 성공!`);
+        }).catch(err => {
+            console.warn(`⚠️ 자동 재생 실패, 음소거로 재시도:`, err);
+            // 자동재생이 차단되면 음소거하고 재시도
+            video.muted = true;
+            video.play().catch(e => console.error(`❌ 음소거 재생도 실패:`, e));
+        });
+
+        // 지정된 시간 후 오버레이 제거
+        setTimeout(() => {
+            console.log(`⏰ 타이머 완료, 오버레이 제거 시작`);
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.5s ease-out';
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                    console.log(`🗑️ 오버레이 제거 완료`);
+                }
+            }, 500);
+        }, selectedChar.duration);
+
+        // 비디오 종료 시에도 제거 (안전장치)
+        video.addEventListener('ended', () => {
+            console.log(`🏁 비디오 종료됨`);
+            if (overlay.parentNode) {
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.5s ease-out';
+                setTimeout(() => {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                    }
+                }, 500);
+            }
+        });
+    } catch (error) {
+        console.error(`❌ playFullScreenCelebration 에러:`, error);
+    }
+}
+
 // VSCode 서버로 데이터 전송
 async function sendToVSCode(data) {
     try {
@@ -87,17 +192,20 @@ async function sendToVSCode(data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
+
         if (response.ok) {
             const result = await response.json();
             console.log("🚀 VSCode로 채점 결과를 전송했습니다!", result);
+            return result; // Return the response which includes character info
         } else {
             console.error("❌ VSCode 서버 응답 오류:", response.status, response.statusText);
+            return null;
         }
     } catch (error) {
         console.error("❌ VSCode 서버 통신 실패:", error.message);
         console.error("   - 서버가 실행 중인지 확인하세요 (localhost:3000)");
         console.error("   - VSCode Extension이 활성화되어 있는지 확인하세요");
+        return null;
     }
 }
 
@@ -114,7 +222,7 @@ const judgingSubmissions = new Map();
 const sentResults = new Set();
 
 // 최상단 행의 제출 상태 처리
-function processTopRowSubmission() {
+async function processTopRowSubmission() {
     const statusTable = document.querySelector('#status-table tbody');
     if (!statusTable) return;
     
@@ -181,9 +289,9 @@ function processTopRowSubmission() {
     
     console.log(`📊 채점 완료 감지: 문제 ${info.problemId} - ${info.resultText} (${info.status})`);
     console.log(`   ${trackingInfo.judgingStatus} → ${info.resultText}`);
-    
+
     // VSCode로 데이터 전송
-    sendToVSCode({
+    const serverResponse = await sendToVSCode({
         problemId: info.problemId,
         resultText: info.resultText,
         status: info.status,
@@ -192,6 +300,16 @@ function processTopRowSubmission() {
         submissionId: submissionId,
         timestamp: new Date().toISOString()
     });
+
+    // 정답일 경우 축하 영상 재생 (선택된 캐릭터 사용)
+    if (info.status === 'accepted') {
+        console.log(`🎊🎊🎊 정답 감지! 축하 영상을 재생합니다!`);
+        const character = serverResponse?.character || 'aru';
+        console.log(`📺 선택된 캐릭터: ${character}`);
+        playFullScreenCelebration(character);
+    } else {
+        console.log(`❌ 정답이 아님, status = ${info.status}`);
+    }
 }
 
 // ============================================

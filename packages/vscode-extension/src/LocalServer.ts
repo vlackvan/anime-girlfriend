@@ -13,13 +13,16 @@ export interface BOJJudgeResult {
 }
 
 type BOJCallback = (data: BOJJudgeResult) => void;
+type GetCharacterCallback = () => 'aru' | 'chihiro' | undefined;
 
 export class LocalServer {
     private server: http.Server;
     private port: number;
+    private getCharacter: GetCharacterCallback;
 
-    constructor(port: number, onBOJSuccess: BOJCallback) {
+    constructor(port: number, onBOJSuccess: BOJCallback, getCharacter: GetCharacterCallback) {
         this.port = port;
+        this.getCharacter = getCharacter;
 
         this.server = http.createServer((req, res) => {
             // CORS headers
@@ -47,8 +50,13 @@ export class LocalServer {
 
                         onBOJSuccess(data);
 
+                        const selectedCharacter = this.getCharacter();
                         res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ success: true, message: 'Received!' }));
+                        res.end(JSON.stringify({
+                            success: true,
+                            message: 'Received!',
+                            character: selectedCharacter || 'aru' // Default to aru if no character selected
+                        }));
                     } catch (error) {
                         console.error('[LocalServer] Parse error:', error);
                         res.writeHead(400, { 'Content-Type': 'application/json' });

@@ -176,6 +176,25 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
         return (
             <div className="onboarding">
                 <div className="loading-container">
+                    {/* Crystalline gems pattern - bottom right */}
+                    <svg
+                        className="loading-gems-pattern"
+                        width="300"
+                        height="300"
+                        viewBox="0 0 300 300"
+                        preserveAspectRatio="xMaxYMax slice"
+                    >
+                        <polygon points="300,300 220,260 260,200" fill="rgba(74,174,227,0.15)" />
+                        <polygon points="300,260 180,220 220,160" fill="rgba(100,200,240,0.12)" />
+                        <polygon points="280,300 150,280 200,220" fill="rgba(74,174,227,0.18)" />
+                        <polygon points="300,200 210,170 250,110" fill="rgba(120,210,245,0.10)" />
+                        <polygon points="260,300 120,260 170,200" fill="rgba(74,174,227,0.14)" />
+                        <polygon points="300,150 200,120 240,60" fill="rgba(100,200,240,0.08)" />
+                        <polygon points="240,280 100,240 150,170" fill="rgba(74,174,227,0.11)" />
+                        <polygon points="300,100 190,80 230,20" fill="rgba(120,210,245,0.06)" />
+                        <polygon points="220,260 80,220 130,150" fill="rgba(100,200,240,0.09)" />
+                        <polygon points="200,300 60,270 110,200" fill="rgba(74,174,227,0.13)" />
+                    </svg>
                     <img
                         src={(window as any).assetBaseUri.loading}
                         alt="Analyzing"

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Celebration Overlay</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 50px;
+            background: #f0f0f0;
+        }
+        button {
+            padding: 20px 40px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎉 Test Celebration Overlay</h1>
+    <p>Click the buttons below to test the celebration overlay:</p>
+
+    <button onclick="testAru()">Test Aru (2s)</button>
+    <button onclick="testChihiro()">Test Chihiro (4s)</button>
+    <button onclick="testRandom()">Test Random</button>
+
+    <div class="info">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Make sure the video files are in the <code>public/</code> folder</li>
+            <li>Click any button to test the overlay</li>
+            <li>Open DevTools Console (F12) to see debug messages</li>
+        </ol>
+        <p><strong>Video files needed:</strong></p>
+        <ul>
+            <li>public/arusolved.mp4</li>
+            <li>public/chihirosolve.mp4</li>
+        </ul>
+    </div>
+
+    <script>
+        function testAru() {
+            console.log('Testing Aru overlay...');
+            playTestOverlay('aru', 'arusolved.mp4', 2000);
+        }
+
+        function testChihiro() {
+            console.log('Testing Chihiro overlay...');
+            playTestOverlay('chihiro', 'chihirosolve.mp4', 4000);
+        }
+
+        function testRandom() {
+            const characters = [
+                { name: 'aru', video: 'arusolved.mp4', duration: 2000 },
+                { name: 'chihiro', video: 'chihirosolve.mp4', duration: 4000 }
+            ];
+            const selectedChar = characters[Math.floor(Math.random() * characters.length)];
+            console.log(`Testing random: ${selectedChar.name}`);
+            playTestOverlay(selectedChar.name, selectedChar.video, selectedChar.duration);
+        }
+
+        function playTestOverlay(name, videoFile, duration) {
+            console.log(`🎉 Playing ${name} celebration!`);
+
+            // 전체 화면 오버레이 생성
+            const overlay = document.createElement('div');
+            overlay.id = 'test-celebration-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: black;
+                z-index: 2147483647;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            // 비디오 요소 생성
+            const video = document.createElement('video');
+            video.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            `;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = false;
+            video.src = `public/${videoFile}`;
+
+            console.log(`📹 Video src: ${video.src}`);
+
+            video.addEventListener('loadeddata', () => {
+                console.log(`✅ Video loaded: ${name}`);
+            });
+
+            video.addEventListener('playing', () => {
+                console.log(`▶️ Video playing: ${name}`);
+            });
+
+            video.addEventListener('error', (e) => {
+                console.error(`❌ Video load failed:`, e, video.error);
+                alert(`Failed to load video: ${videoFile}\nMake sure the file exists in the public/ folder`);
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            });
+
+            overlay.appendChild(video);
+            document.body.appendChild(overlay);
+
+            // 비디오 재생 시도
+            video.play().then(() => {
+                console.log(`✨ Video started playing!`);
+            }).catch(err => {
+                console.warn(`⚠️ Autoplay failed, retrying muted:`, err);
+                video.muted = true;
+                video.play().catch(e => console.error(`❌ Muted play also failed:`, e));
+            });
+
+            // 지정된 시간 후 오버레이 제거
+            setTimeout(() => {
+                console.log(`⏰ Timer complete, removing overlay`);
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.5s ease-out';
+                setTimeout(() => {
+                    if (overlay.parentNode) {
+                        overlay.parentNode.removeChild(overlay);
+                        console.log(`🗑️ Overlay removed`);
+                    }
+                }, 500);
+            }, duration);
+
+            // 비디오 종료 시에도 제거
+            video.addEventListener('ended', () => {
+                console.log(`🏁 Video ended`);
+                if (overlay.parentNode) {
+                    overlay.style.opacity = '0';
+                    overlay.style.transition = 'opacity 0.5s ease-out';
+                    setTimeout(() => {
+                        if (overlay.parentNode) {
+                            overlay.parentNode.removeChild(overlay);
+                        }
+                    }, 500);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

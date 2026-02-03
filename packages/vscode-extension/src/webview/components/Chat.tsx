@@ -18,6 +18,7 @@ interface ChatProps {
 export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 0 }) => {
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
+    const [isBongoCatOpen, setIsBongoCatOpen] = useState(true);
 
     useEffect(() => {
         console.log('Chat component mounted v2.1 - checking icons');
@@ -185,8 +186,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
         }
     };
 
+    const toggleBongoCat = () => {
+        setIsBongoCatOpen(prev => !prev);
+    };
+
     return (
-        <div className="chat-wrapper">
+        <div className={`chat-wrapper ${isBongoCatOpen ? '' : 'bongo-closed'}`}>
             <div className="chat">
                 <div className="chat-header">
                     <div className="chat-title">🍑MomoTalk</div>
@@ -301,7 +306,27 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     </div>
                 </div>
             </div>
-            <BongoCat />
+
+            {/* Bongo Cat Toggle Button */}
+            <button className="bongo-toggle-btn" onClick={toggleBongoCat} title={isBongoCatOpen ? '접기' : '펼치기'}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    {isBongoCatOpen ? (
+                        // Down arrow (close/collapse)
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    ) : (
+                        // Up arrow with line (open/expand) - eject icon style
+                        <>
+                            <polyline points="6 11 12 5 18 11"></polyline>
+                            <line x1="6" y1="19" x2="18" y2="19"></line>
+                        </>
+                    )}
+                </svg>
+            </button>
+
+            {/* Collapsible Bongo Cat Section */}
+            <div className={`bongo-cat-section ${isBongoCatOpen ? 'open' : 'closed'}`}>
+                <BongoCat />
+            </div>
         </div>
     );
 };

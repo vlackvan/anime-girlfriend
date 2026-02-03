@@ -13,5 +13,11 @@
       "matches": ["https://www.acmicpc.net/status*"],
       "js": ["content.js"]
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["public/arusolved.mp4", "public/chihirosolve.mp4"],
+      "matches": ["https://www.acmicpc.net/*"]
+    }
   ]
 }
