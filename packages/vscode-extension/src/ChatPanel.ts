@@ -309,7 +309,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; media-src ${webview.cspSource} https: mediastream: blob:; connect-src https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; font-src ${webview.cspSource}; media-src ${webview.cspSource} https: mediastream: blob:; connect-src https:;">
   <meta http-equiv="Permissions-Policy" content="microphone=(self)">
   <link href="${styleUri}" rel="stylesheet">
   <title>Anime Girlfriend</title>
