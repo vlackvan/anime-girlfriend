@@ -222,18 +222,6 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
             <div className="chat">
                 <div className="chat-header">
                     <div className="chat-title">🍑MomoTalk</div>
-                    {currentProblem && (
-                        <div className="current-problem-badge">
-                            <span className="problem-text">문제 #{currentProblem}</span>
-                            <button
-                                className="change-problem-btn"
-                                onClick={handleChangeProblem}
-                                title="문제 변경"
-                            >
-                                변경
-                            </button>
-                        </div>
-                    )}
                     <div className="chat-header-info">
                         <img
                             src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
@@ -245,6 +233,18 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                             <span className="status-dot"></span>
                             <span className="status-text">온라인</span>
                         </div>
+                        {currentProblem && (
+                            <div className="current-problem-badge">
+                                <span className="problem-text">문제 #{currentProblem}</span>
+                                <button
+                                    className="change-problem-btn"
+                                    onClick={handleChangeProblem}
+                                    title="문제 변경"
+                                >
+                                    변경
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
