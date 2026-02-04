@@ -219,10 +219,6 @@ export class RAGService {
      * @returns Formatted context string
      */
     private formatBOJContext(documents: SearchResult[], problemId: string): string {
-        if (documents.length === 0) {
-            return '';
-        }
-
         // Separate by type
         const tagDocs = documents.filter(d => d.metadata.type === 'boj_tag');
         const solutionDocs = documents.filter(d => d.metadata.type === 'solution');

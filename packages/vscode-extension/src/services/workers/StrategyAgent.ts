@@ -15,14 +15,20 @@ export class StrategyAgent {
         context: AggregatedContext,
         apiKey: string
     ): Promise<string> {
-        const { problemId, localBOJData, userTier, userTierName, hintLevel, solvedAcData } = context;
+        const { problemId, localBOJData, ragContext, userTier, userTierName, hintLevel, solvedAcData } = context;
 
         console.log(`  [Worker B] Building strategy prompt...`);
 
+        // Check if problem exists in database
+        if (!localBOJData || (ragContext && ragContext.includes('No information found'))) {
+            console.log(`  [Worker B] Problem ${problemId} not found in database - returning error message`);
+            return `문제 ${problemId}번은 데이터베이스에 없습니다. 문제 번호를 확인해주세요.`;
+        }
+
         // Build strategy prompt
-        const problemDifficulty = localBOJData?.difficulty || 0;
-        const problemTags = localBOJData?.tags || [];
-        const recommendedApproach = localBOJData?.recommendedApproach || '';
+        const problemDifficulty = localBOJData.difficulty;
+        const problemTags = localBOJData.tags || [];
+        const recommendedApproach = localBOJData.recommendedApproach || '';
 
         // Determine hint depth based on tier vs difficulty
         const tierGap = problemDifficulty - (userTier || 0);
