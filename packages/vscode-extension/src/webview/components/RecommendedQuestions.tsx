@@ -61,7 +61,9 @@ export const RecommendedQuestions: React.FC<RecommendedQuestionsProps> = ({
     disabled = false
 }) => {
     const stateQuestions = QUESTIONS_BY_STATE[codingState];
-    const levelQuestions = QUESTIONS_BY_LEVEL[hintLevel];
+    // Cap hint level at max (3) to ensure level questions always exist
+    const cappedHintLevel = Math.min(hintLevel, 3);
+    const levelQuestions = QUESTIONS_BY_LEVEL[cappedHintLevel];
 
     return (
         <div className="recommended-questions">
