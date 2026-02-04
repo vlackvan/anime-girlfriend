@@ -5,11 +5,7 @@ import { AggregatedContext } from '../../types/PipelineTypes';
  * Generates pedagogical hints without persona
  */
 export class StrategyAgent {
-    private logPipeline: (message: string, data?: any) => void;
-
-    constructor(logPipeline: (message: string, data?: any) => void) {
-        this.logPipeline = logPipeline;
-    }
+    constructor() {}
 
     /**
      * Generate strategy hint based on context
@@ -21,7 +17,7 @@ export class StrategyAgent {
     ): Promise<string> {
         const { problemId, localBOJData, userTier, userTierName, hintLevel, solvedAcData } = context;
 
-        this.logPipeline(`  [Worker B] Building strategy prompt...`);
+        console.log(`  [Worker B] Building strategy prompt...`);
 
         // Build strategy prompt
         const problemDifficulty = localBOJData?.difficulty || 0;
@@ -37,8 +33,8 @@ export class StrategyAgent {
             explanationDepth = 'advanced';
         }
 
-        this.logPipeline(`  [Worker B] Tier Gap: ${tierGap > 0 ? '+' : ''}${tierGap}`);
-        this.logPipeline(`  [Worker B] Explanation Depth: ${explanationDepth}`);
+        console.log(`  [Worker B] Tier Gap: ${tierGap > 0 ? '+' : ''}${tierGap}`);
+        console.log(`  [Worker B] Explanation Depth: ${explanationDepth}`);
 
         // Hint level descriptions
         const hintLevels = [
@@ -57,6 +53,7 @@ CRITICAL RULES:
 3. Adjust explanation depth based on user's tier vs problem difficulty
 4. Use Korean language
 5. Be encouraging but don't solve for them
+6. STRICTLY follow the hint level - do NOT provide more information than the level allows
 
 Current Situation:
 - Problem ID: ${problemId}
@@ -73,10 +70,18 @@ Problem Information:
 ${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
 
 Your task: Generate a hint at level ${hintLevel} that helps the user progress without giving away the solution.
-Keep it concise (2-3 sentences max).`;
 
-        this.logPipeline(`  [Worker B] System Prompt Length: ${systemPrompt.length} chars`);
-        this.logPipeline(`  [Worker B] Calling OpenAI API (gpt-4o)...`);
+HINT LEVEL RESTRICTIONS:
+- Level 0: Give ONLY a vague direction or general idea. NO algorithm names, NO data structures, NO code. Just a conceptual nudge (1 sentence max).
+- Level 1: Suggest algorithm tags or data structure names ONLY. NO implementation details, NO pseudocode (1 sentence max).
+- Level 2: Provide a high-level approach or pseudocode outline. NO actual code (2 sentences max).
+- Level 3: Show partial code with key logic. But leave critical parts for the user to fill (2-3 sentences max).
+- Level 4: Show full solution code (last resort only).
+
+IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code blocks, markdown formatting, or detailed explanations. Just the hint content itself, in plain Korean text.`;
+
+        console.log(`  [Worker B] System Prompt Length: ${systemPrompt.length} chars`);
+        console.log(`  [Worker B] Calling OpenAI API (gpt-4o)...`);
 
         try {
             const startTime = Date.now();
@@ -98,7 +103,7 @@ Keep it concise (2-3 sentences max).`;
             });
 
             const apiTime = Date.now() - startTime;
-            this.logPipeline(`  [Worker B] API Response Time: ${apiTime}ms`);
+            console.log(`  [Worker B] API Response Time: ${apiTime}ms`);
 
             if (!response.ok) {
                 const error = await response.json();
@@ -107,10 +112,10 @@ Keep it concise (2-3 sentences max).`;
 
             const data: any = await response.json();
             const hint = data.choices[0].message.content.trim();
-            this.logPipeline(`  [Worker B] Hint generated successfully (${hint.length} chars)`);
+            console.log(`  [Worker B] Hint generated successfully (${hint.length} chars)`);
             return hint;
         } catch (error) {
-            this.logPipeline(`  [Worker B] ❌ Strategy hint generation failed:`, error);
+            console.error(`  [Worker B] ❌ Strategy hint generation failed:`, error);
             console.error('[StrategyAgent] Strategy hint generation failed:', error);
             return userMessage; // Fallback to original message
         }

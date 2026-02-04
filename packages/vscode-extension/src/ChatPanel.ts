@@ -236,11 +236,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[]) {
         if (!isHidden) {
             console.log('[ChatPanel] User message:', content);
+            console.log('[ChatPanel] Starting chat pipeline...');
         }
 
         // Check for API key
         const hasApiKey = await this.apiKeyManager.hasApiKey();
         if (!hasApiKey) {
+            console.error('[ChatPanel] No API key configured');
             this.postMessage({
                 type: 'botMessage',
                 content: '❌ No API key configured. Please use the command "Anime Girlfriend: Enter OpenAI API Key" to set your key.',
@@ -255,7 +257,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             id: Date.now().toString()
         });
 
-        await this.chatGPTService.sendMessage(content, {
+        console.log('[ChatPanel] About to call chatGPTService.sendMessage()...');
+        try {
+            await this.chatGPTService.sendMessage(content, {
             onToken: (token) => {
                 this.postMessage({
                     type: 'botMessageToken',
@@ -270,12 +274,22 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             },
             onError: (error) => {
                 console.error('[ChatPanel] ChatGPT Error:', error);
+                console.error('[ChatPanel] Error details:', error.message, error.stack);
                 this.postMessage({
                     type: 'botMessageError',
                     error: error.message
                 });
             }
         }, images);
+        console.log('[ChatPanel] sendMessage() call completed');
+        } catch (error) {
+            console.error('[ChatPanel] Exception in sendMessage():', error);
+            console.error('[ChatPanel] Exception details:', error instanceof Error ? error.stack : String(error));
+            this.postMessage({
+                type: 'botMessageError',
+                error: error instanceof Error ? error.message : 'Unknown error occurred'
+            });
+        }
     }
 
     showOverlay(problemId: string) {

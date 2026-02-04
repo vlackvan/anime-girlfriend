@@ -31,7 +31,6 @@ export class ChatGPTService {
     private solvedAcService: SolvedAcService;
     private conversationHistory: ChatMessage[] = [];
     private userProfile?: StoredUserProfile;
-    private outputChannel: vscode.OutputChannel;
 
     // Workers
     private contextAggregator: ContextAggregator;
@@ -44,23 +43,16 @@ export class ChatGPTService {
         this.codeContextProvider = new CodeContextProvider();
         this.ragService = RAGService.getInstance();
         this.solvedAcService = new SolvedAcService();
-        this.outputChannel = vscode.window.createOutputChannel('Anime Girlfriend Pipeline');
 
         // Initialize workers
         this.contextAggregator = new ContextAggregator(
             this.ragService,
             this.codeContextProvider,
             this.userDataStore,
-            this.userProfile,
-            (msg: string, data?: any) => this.logPipeline(msg, data)
+            this.userProfile
         );
-        this.strategyAgent = new StrategyAgent(
-            (msg: string, data?: any) => this.logPipeline(msg, data)
-        );
-        this.personaWrapper = new PersonaWrapper(
-            this.userProfile,
-            (msg: string, data?: any) => this.logPipeline(msg, data)
-        );
+        this.strategyAgent = new StrategyAgent();
+        this.personaWrapper = new PersonaWrapper(this.userProfile);
 
         // Initialize RAG service asynchronously
         this.initializeRAG();
@@ -88,8 +80,7 @@ export class ChatGPTService {
             this.ragService,
             this.codeContextProvider,
             this.userDataStore,
-            this.userProfile,
-            (msg: string, data?: any) => this.logPipeline(msg, data)
+            this.userProfile
         );
         this.personaWrapper.setUserProfile(this.userProfile);
     }
@@ -112,69 +103,79 @@ export class ChatGPTService {
      * Orchestrator: Send a message and stream the response using 3-step Worker pipeline
      */
     async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
+        console.log('[ChatGPTService] sendMessage() called with message length:', userMessage.length);
+        
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
+            console.error('[ChatGPTService] No API key found');
             callbacks.onError(new Error('No API key configured. Please enter your OpenAI API key.'));
             return;
         }
 
+        console.log('[ChatGPTService] API key found, starting pipeline...');
+
         try {
             const timestamp = new Date().toISOString();
-            this.logPipeline(`\n${'='.repeat(80)}`);
-            this.logPipeline(`[${timestamp}] Pipeline Started`);
-            this.logPipeline(`${'='.repeat(80)}`);
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`[${timestamp}] Pipeline Started`);
+            console.log(`${'='.repeat(80)}`);
 
             // Step 1: Worker A - Context Aggregator
-            this.logPipeline(`\n🔍 [Worker A] Context Aggregator - Starting...`);
-            this.logPipeline(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            console.log(`\n🔍 [Worker A] Context Aggregator - Starting...`);
+            console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
             if (images && images.length > 0) {
-                this.logPipeline(`Input: Images = ${images.length} image(s) attached`);
+                console.log(`Input: Images = ${images.length} image(s) attached`);
             }
 
+            console.log('[ChatGPTService] Calling contextAggregator.aggregate()...');
             const context = await this.contextAggregator.aggregate(userMessage);
+            console.log('[ChatGPTService] Context aggregation completed');
 
             // Log Worker A output
-            this.logPipeline(`\n✅ [Worker A] Context Aggregated:`);
-            this.logPipeline(`  - Problem ID: ${context.problemId || 'None'}`);
-            this.logPipeline(`  - User Tier: ${context.userTierName || 'Unknown'} (Level ${context.userTier || 0})`);
-            this.logPipeline(`  - Hint Level: ${context.hintLevel}`);
+            console.log(`\n✅ [Worker A] Context Aggregated:`);
+            console.log(`  - Problem ID: ${context.problemId || 'None'}`);
+            console.log(`  - User Tier: ${context.userTierName || 'Unknown'} (Level ${context.userTier || 0})`);
+            console.log(`  - Hint Level: ${context.hintLevel}`);
             if (context.localBOJData) {
-                this.logPipeline(`  - Problem Difficulty: ${context.localBOJData.difficultyName} (Level ${context.localBOJData.difficulty})`);
-                this.logPipeline(`  - Problem Tags: ${context.localBOJData.tags.join(', ')}`);
+                console.log(`  - Problem Difficulty: ${context.localBOJData.difficultyName} (Level ${context.localBOJData.difficulty})`);
+                console.log(`  - Problem Tags: ${context.localBOJData.tags.join(', ')}`);
             }
-            this.logPipeline(`  - RAG Context Length: ${context.ragContext.length} chars`);
-            this.logPipeline(`  - Code Context Length: ${context.codeContext.length} chars`);
-            this.logPipeline(`\n📦 [Worker A → Worker B] Context Object:`, context);
+            console.log(`  - RAG Context Length: ${context.ragContext.length} chars`);
+            console.log(`  - Code Context Length: ${context.codeContext.length} chars`);
+            console.log(`\n📦 [Worker A → Worker B] Context Object:`, context);
 
             // Step 2: Worker B - Logic & Strategy Agent (only for BOJ problems)
             let strategyHint = '';
             if (context.problemId) {
-                this.logPipeline(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
-                this.logPipeline(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
-                this.logPipeline(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
+                console.log(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
+                console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+                console.log(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
+                console.log('[ChatGPTService] Calling strategyAgent.generateHint()...');
 
                 strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
+                console.log('[ChatGPTService] Strategy hint generation completed, hint length:', strategyHint.length);
                 
                 // Log Worker B output
-                this.logPipeline(`\n✅ [Worker B] Strategy Hint Generated:`);
-                this.logPipeline(`  - Hint Level: ${context.hintLevel}`);
-                this.logPipeline(`  - Hint Length: ${strategyHint.length} chars`);
-                this.logPipeline(`  - Hint Content: "${strategyHint}"`);
-                this.logPipeline(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
+                console.log(`\n✅ [Worker B] Strategy Hint Generated:`);
+                console.log(`  - Hint Level: ${context.hintLevel}`);
+                console.log(`  - Hint Length: ${strategyHint.length} chars`);
+                console.log(`  - Hint Content: "${strategyHint}"`);
+                console.log(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
 
                 // Increment hint level for this problem
                 const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
-                this.logPipeline(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
+                console.log(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
             } else {
-                this.logPipeline(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
-                this.logPipeline(`\n📦 [Worker B → Worker C] Using original message`);
+                console.log(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
+                console.log(`\n📦 [Worker B → Worker C] Using original message`);
             }
 
             // Step 3: Worker C - Persona Wrapper Agent
-            this.logPipeline(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
-            this.logPipeline(`Input: Original Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
-            this.logPipeline(`Input: Strategy Hint = "${strategyHint || '(using original message)'}"`);
-            this.logPipeline(`Input: Context (character=${this.userProfile?.character || 'unknown'})`);
+            console.log(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
+            console.log(`Input: Original Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            console.log(`Input: Strategy Hint = "${strategyHint || '(using original message)'}"`);
+            console.log(`Input: Context (character=${this.userProfile?.character || 'unknown'})`);
+            console.log('[ChatGPTService] Calling personaWrapper.wrap()...');
 
             const finalResponse = await this.personaWrapper.wrap(
                 userMessage,
@@ -187,10 +188,10 @@ export class ChatGPTService {
             );
 
             // Log Worker C output
-            this.logPipeline(`\n✅ [Worker C] Final Response Generated:`);
-            this.logPipeline(`  - Response Length: ${finalResponse.length} chars`);
-            this.logPipeline(`  - Response Preview: "${finalResponse.substring(0, 150)}${finalResponse.length > 150 ? '...' : ''}"`);
-            this.logPipeline(`\n📦 [Worker C → User] Final Response:`, finalResponse);
+            console.log(`\n✅ [Worker C] Final Response Generated:`);
+            console.log(`  - Response Length: ${finalResponse.length} chars`);
+            console.log(`  - Response Preview: "${finalResponse.substring(0, 150)}${finalResponse.length > 150 ? '...' : ''}"`);
+            console.log(`\n📦 [Worker C → User] Final Response:`, finalResponse);
 
             // Add to conversation history
             this.conversationHistory.push({
@@ -202,44 +203,21 @@ export class ChatGPTService {
                 content: finalResponse
             });
 
-            this.logPipeline(`\n${'='.repeat(80)}`);
-            this.logPipeline(`[${new Date().toISOString()}] Pipeline Completed`);
-            this.logPipeline(`${'='.repeat(80)}\n`);
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`[${new Date().toISOString()}] Pipeline Completed`);
+            console.log(`${'='.repeat(80)}\n`);
 
             callbacks.onComplete(finalResponse);
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            this.logPipeline(`\n❌ [Pipeline Error] ${errorMessage}`);
-            this.logPipeline(`Error Stack:`, error instanceof Error ? error.stack : 'No stack trace');
-            console.error('[ChatGPTService] Pipeline error:', error);
-            callbacks.onError(error instanceof Error ? error : new Error(String(error)));
-        }
-    }
-
-    /**
-     * Log pipeline data to both console and output channel
-     */
-    private logPipeline(message: string, data?: any): void {
-        // Log to console
-        console.log(message);
-        if (data !== undefined) {
-            console.log(JSON.stringify(data, null, 2));
-        }
-
-        // Log to output channel
-        this.outputChannel.appendLine(message);
-        if (data !== undefined) {
-            try {
-                // Format data nicely
-                if (typeof data === 'object') {
-                    this.outputChannel.appendLine(JSON.stringify(data, null, 2));
-                } else {
-                    this.outputChannel.appendLine(String(data));
-                }
-            } catch (e) {
-                this.outputChannel.appendLine(`[Unable to serialize data: ${e}]`);
+            console.error(`\n❌ [Pipeline Error] ${errorMessage}`);
+            console.error('[ChatGPTService] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+            if (error instanceof Error && error.stack) {
+                console.error(`Error Stack:`, error.stack);
             }
+            console.error('[ChatGPTService] Full error object:', error);
+            callbacks.onError(error instanceof Error ? error : new Error(String(error)));
         }
     }
 

@@ -14,30 +14,27 @@ export class ContextAggregator {
     private codeContextProvider: CodeContextProvider;
     private userDataStore: UserDataStore;
     private userProfile?: StoredUserProfile;
-    private logPipeline: (message: string, data?: any) => void;
 
     constructor(
         ragService: RAGService,
         codeContextProvider: CodeContextProvider,
         userDataStore: UserDataStore,
-        userProfile: StoredUserProfile | undefined,
-        logPipeline: (message: string, data?: any) => void
+        userProfile: StoredUserProfile | undefined
     ) {
         this.ragService = ragService;
         this.codeContextProvider = codeContextProvider;
         this.userDataStore = userDataStore;
         this.userProfile = userProfile;
-        this.logPipeline = logPipeline;
     }
 
     /**
      * Aggregate all context for the pipeline
      */
     async aggregate(userMessage: string): Promise<AggregatedContext> {
-        this.logPipeline(`  [Worker A] Detecting BOJ problem...`);
+        console.log(`  [Worker A] Detecting BOJ problem...`);
         const detectedProblemId = this.detectBOJProblem(userMessage);
         const problemId = detectedProblemId ?? undefined;
-        this.logPipeline(`  [Worker A] Problem ID detected: ${problemId || 'None'}`);
+        console.log(`  [Worker A] Problem ID detected: ${problemId || 'None'}`);
 
         let ragContext = '';
         let localBOJData: LocalBOJProblem | undefined;
@@ -45,50 +42,50 @@ export class ContextAggregator {
         // Get RAG context
         try {
             if (problemId) {
-                this.logPipeline(`  [Worker A] Retrieving BOJ-specific context for problem ${problemId}...`);
+                console.log(`  [Worker A] Retrieving BOJ-specific context for problem ${problemId}...`);
                 const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
                 ragContext = formattedContext;
-                this.logPipeline(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
+                console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
                 if (documents.length > 0) {
                     const docTypes = documents.map(d => d.metadata.type).join(', ');
-                    this.logPipeline(`  [Worker A] RAG: Document types: ${docTypes}`);
+                    console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
                 }
                 
                 // Get local BOJ data
-                this.logPipeline(`  [Worker A] Loading local BOJ data for problem ${problemId}...`);
+                console.log(`  [Worker A] Loading local BOJ data for problem ${problemId}...`);
                 const localData = await this.ragService.getLocalBOJProblem(problemId);
                 localBOJData = localData ?? undefined;
                 if (localBOJData) {
-                    this.logPipeline(`  [Worker A] Local BOJ Data: ${localBOJData.titleKo} (${localBOJData.difficultyName})`);
+                    console.log(`  [Worker A] Local BOJ Data: ${localBOJData.titleKo} (${localBOJData.difficultyName})`);
                 } else {
-                    this.logPipeline(`  [Worker A] Local BOJ Data: Not found`);
+                    console.log(`  [Worker A] Local BOJ Data: Not found`);
                 }
             } else if (this.ragService.isEnabled()) {
-                this.logPipeline(`  [Worker A] Retrieving general RAG context...`);
+                console.log(`  [Worker A] Retrieving general RAG context...`);
                 const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
                 ragContext = formattedContext;
                 if (documents.length > 0) {
-                    this.logPipeline(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
+                    console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
                     const docTypes = documents.map(d => d.metadata.type).join(', ');
-                    this.logPipeline(`  [Worker A] RAG: Document types: ${docTypes}`);
+                    console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
                 } else {
-                    this.logPipeline(`  [Worker A] RAG: No relevant documents found`);
+                    console.log(`  [Worker A] RAG: No relevant documents found`);
                 }
             } else {
-                this.logPipeline(`  [Worker A] RAG: Service disabled`);
+                console.log(`  [Worker A] RAG: Service disabled`);
             }
         } catch (error) {
-            this.logPipeline(`  [Worker A] ❌ RAG retrieval failed:`, error);
+            console.error(`  [Worker A] ❌ RAG retrieval failed:`, error);
             console.error('[ContextAggregator] Failed to retrieve RAG context:', error);
         }
 
         // Get code context
-        this.logPipeline(`  [Worker A] Building code context...`);
+        console.log(`  [Worker A] Building code context...`);
         const codeContext = this.codeContextProvider.buildContextString();
-        this.logPipeline(`  [Worker A] Code context length: ${codeContext.length} chars`);
+        console.log(`  [Worker A] Code context length: ${codeContext.length} chars`);
 
         // Get user tier and hint level
-        this.logPipeline(`  [Worker A] Loading user profile data...`);
+        console.log(`  [Worker A] Loading user profile data...`);
         let userTier: number | undefined;
         let userTierName: string | undefined;
         let hintLevel = 0;
@@ -97,14 +94,14 @@ export class ContextAggregator {
         if (solvedAcData && 'tier' in solvedAcData) {
             userTier = solvedAcData.tier;
             userTierName = this.getTierName(solvedAcData.tier);
-            this.logPipeline(`  [Worker A] User Tier: ${userTierName} (Level ${userTier})`);
+            console.log(`  [Worker A] User Tier: ${userTierName} (Level ${userTier})`);
         } else {
-            this.logPipeline(`  [Worker A] User Tier: Not available`);
+            console.log(`  [Worker A] User Tier: Not available`);
         }
 
         if (problemId) {
             hintLevel = this.userDataStore.getHintLevel(problemId);
-            this.logPipeline(`  [Worker A] Hint Level for problem ${problemId}: ${hintLevel}`);
+            console.log(`  [Worker A] Hint Level for problem ${problemId}: ${hintLevel}`);
         }
 
         const context: AggregatedContext = {

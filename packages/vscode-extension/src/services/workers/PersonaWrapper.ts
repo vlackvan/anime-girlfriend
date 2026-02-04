@@ -11,15 +11,10 @@ import { StreamCallbacks } from '../../ChatGPTService';
 export class PersonaWrapper {
     private userProfile?: StoredUserProfile;
     private promptBuilder: PersonaPromptBuilder;
-    private logPipeline: (message: string, data?: any) => void;
 
-    constructor(
-        userProfile: StoredUserProfile | undefined,
-        logPipeline: (message: string, data?: any) => void
-    ) {
+    constructor(userProfile: StoredUserProfile | undefined) {
         this.userProfile = userProfile;
         this.promptBuilder = new PersonaPromptBuilder(userProfile);
-        this.logPipeline = logPipeline;
     }
 
     /**
@@ -42,26 +37,26 @@ export class PersonaWrapper {
         conversationHistory: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
         callbacks: StreamCallbacks
     ): Promise<string> {
-        this.logPipeline(`  [Worker C] Building persona prompt...`);
+        console.log(`  [Worker C] Building persona prompt...`);
         const systemPrompt = this.promptBuilder.build(context);
-        this.logPipeline(`  [Worker C] Persona prompt length: ${systemPrompt.length} chars`);
-        this.logPipeline(`  [Worker C] Character: ${this.userProfile?.character || 'unknown'}`);
+        console.log(`  [Worker C] Persona prompt length: ${systemPrompt.length} chars`);
+        console.log(`  [Worker C] Character: ${this.userProfile?.character || 'unknown'}`);
         
         // Build messages array
         const messagesToSend: any[] = [
             { role: 'system', content: systemPrompt },
             ...conversationHistory.slice(-20, -1), // Previous history
         ];
-        this.logPipeline(`  [Worker C] Conversation history: ${conversationHistory.length} messages (using last ${Math.min(20, conversationHistory.length - 1)})`);
+        console.log(`  [Worker C] Conversation history: ${conversationHistory.length} messages (using last ${Math.min(20, conversationHistory.length - 1)})`);
 
         // Add current message with strategy hint
         const userContent = context.problemId 
-            ? `[User asked about problem ${context.problemId}]\n${originalMessage}\n\n[Your pedagogical hint to give: ${strategyHint}]`
+            ? `[User asked about problem ${context.problemId}]\n${originalMessage}\n\n[CRITICAL: You must deliver this pedagogical hint EXACTLY as written, without expanding, explaining further, or adding code. Just wrap it with your persona tone. Current hint level: ${context.hintLevel}]\n\n[The hint to deliver: ${strategyHint}]`
             : originalMessage;
 
-        this.logPipeline(`  [Worker C] User content length: ${userContent.length} chars`);
+        console.log(`  [Worker C] User content length: ${userContent.length} chars`);
         if (context.problemId) {
-            this.logPipeline(`  [Worker C] Strategy hint injected: "${strategyHint.substring(0, 100)}${strategyHint.length > 100 ? '...' : ''}"`);
+            console.log(`  [Worker C] Strategy hint injected: "${strategyHint.substring(0, 100)}${strategyHint.length > 100 ? '...' : ''}"`);
         }
 
         if (images && images.length > 0) {
@@ -73,16 +68,16 @@ export class PersonaWrapper {
                 });
             }
             messagesToSend.push({ role: 'user', content: contentParts });
-            this.logPipeline(`  [Worker C] Images attached: ${images.length} image(s)`);
+            console.log(`  [Worker C] Images attached: ${images.length} image(s)`);
         } else {
             messagesToSend.push({ role: 'user', content: userContent });
         }
 
         const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
         const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
-        this.logPipeline(`  [Worker C] Using model: ${effectiveModel}`);
+        console.log(`  [Worker C] Using model: ${effectiveModel}`);
 
-        this.logPipeline(`  [Worker C] Calling OpenAI API (${effectiveModel}, streaming)...`);
+        console.log(`  [Worker C] Calling OpenAI API (${effectiveModel}, streaming)...`);
         const startTime = Date.now();
         let tokenCount = 0;
 
@@ -103,12 +98,12 @@ export class PersonaWrapper {
 
         if (!response.ok) {
             const error = await response.json();
-            this.logPipeline(`  [Worker C] ❌ API Error: ${response.status}`, error);
+            console.error(`  [Worker C] ❌ API Error: ${response.status}`, error);
             throw new Error(error.error?.message || `API Error: ${response.status}`);
         }
 
         if (!response.body) {
-            this.logPipeline(`  [Worker C] ❌ No response body`);
+            console.error(`  [Worker C] ❌ No response body`);
             throw new Error('No response body');
         }
 
@@ -117,7 +112,7 @@ export class PersonaWrapper {
         const decoder = new TextDecoder();
         let fullResponse = '';
 
-        this.logPipeline(`  [Worker C] Starting to stream response...`);
+        console.log(`  [Worker C] Starting to stream response...`);
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -146,8 +141,8 @@ export class PersonaWrapper {
         }
 
         const streamTime = Date.now() - startTime;
-        this.logPipeline(`  [Worker C] Streaming completed: ${tokenCount} tokens in ${streamTime}ms`);
-        this.logPipeline(`  [Worker C] Final response length: ${fullResponse.length} chars`);
+        console.log(`  [Worker C] Streaming completed: ${tokenCount} tokens in ${streamTime}ms`);
+        console.log(`  [Worker C] Final response length: ${fullResponse.length} chars`);
 
         return fullResponse;
     }
