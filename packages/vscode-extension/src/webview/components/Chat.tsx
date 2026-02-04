@@ -204,9 +204,15 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     break;
 
                 case 'hintLevel':
-                    // Update hint level from backend
+                    // Update hint level from backend - only reset phase if level CHANGES
                     if (typeof message.level === 'number') {
-                        setHintLevel(message.level);
+                        setHintLevel(prevLevel => {
+                            // Only reset phase to DEFAULT if level actually increased
+                            if (message.level !== prevLevel) {
+                                setHintPhase('DEFAULT');
+                            }
+                            return message.level;
+                        });
                     }
                     break;
             }

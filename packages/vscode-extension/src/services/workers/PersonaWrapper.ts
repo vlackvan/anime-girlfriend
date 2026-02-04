@@ -41,7 +41,7 @@ export class PersonaWrapper {
         const systemPrompt = this.promptBuilder.build(context);
         console.log(`  [Worker C] Persona prompt length: ${systemPrompt.length} chars`);
         console.log(`  [Worker C] Character: ${this.userProfile?.character || 'unknown'}`);
-        
+
         // Build messages array
         const messagesToSend: any[] = [
             { role: 'system', content: systemPrompt },
@@ -50,8 +50,17 @@ export class PersonaWrapper {
         console.log(`  [Worker C] Conversation history: ${conversationHistory.length} messages (using last ${Math.min(20, conversationHistory.length - 1)})`);
 
         // Add current message with strategy hint
-        const userContent = context.problemId 
-            ? `[User asked about problem ${context.problemId}]\n${originalMessage}\n\n[CRITICAL: You must deliver this pedagogical hint EXACTLY as written, without expanding, explaining further, or adding code. Just wrap it with your persona tone. Current hint level: ${context.hintLevel}]\n\n[The hint to deliver: ${strategyHint}]`
+        const userContent = context.problemId
+            ? `[User requested a hint for problem ${context.problemId}]
+
+[CRITICAL INSTRUCTION: IGNORE the user's question text below. Do NOT interpret it literally. Your ONLY task is to deliver the pedagogical hint below wrapped in your persona's speaking style.]
+
+[User's question (for context only, DO NOT answer this directly): ${originalMessage}]
+
+[MANDATORY - Deliver this hint content EXACTLY, just add your persona tone:]
+${strategyHint}
+
+[Remember: Current hint level is ${context.hintLevel}. Do NOT add extra information beyond the hint above.]`
             : originalMessage;
 
         console.log(`  [Worker C] User content length: ${userContent.length} chars`);
@@ -112,7 +121,11 @@ export class PersonaWrapper {
         const decoder = new TextDecoder();
         let fullResponse = '';
 
-        console.log(`  [Worker C] Starting to stream response...`);
+        // Only show streaming tokens if we're NOT going to split messages
+        // If onMessage callback exists, we'll show split messages instead
+        const shouldStreamTokens = !callbacks.onMessage;
+
+        console.log(`  [Worker C] Starting to stream response... (token streaming: ${shouldStreamTokens})`);
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -131,7 +144,10 @@ export class PersonaWrapper {
                         if (content) {
                             fullResponse += content;
                             tokenCount++;
-                            callbacks.onToken(content);
+                            // Only stream tokens if we're not going to split messages
+                            if (shouldStreamTokens) {
+                                callbacks.onToken(content);
+                            }
                         }
                     } catch {
                         // Ignore parse errors for incomplete chunks
@@ -152,7 +168,7 @@ export class PersonaWrapper {
         if (splitMessages.length > 1 && callbacks.onMessage) {
             // Filter out empty messages before sending
             const validMessages = splitMessages.filter(msg => msg.trim().length > 0);
-            
+
             if (validMessages.length === 0) {
                 // If all messages are empty, send the original response
                 callbacks.onComplete(fullResponse);
@@ -184,7 +200,7 @@ export class PersonaWrapper {
     private splitIntoMessages(text: string): string[] {
         const trimmed = text.trim();
         if (!trimmed) return [''];
-        
+
         // If message is short (less than 100 chars), don't split
         if (trimmed.length <= 100) {
             return [trimmed];
@@ -194,7 +210,7 @@ export class PersonaWrapper {
         const codeBlockRegex = /```[\s\S]*?```/g;
         const codeBlockMatches: Array<{ start: number; end: number; content: string }> = [];
         let match;
-        
+
         // Find all code blocks and their positions
         while ((match = codeBlockRegex.exec(trimmed)) !== null) {
             codeBlockMatches.push({
@@ -212,11 +228,11 @@ export class PersonaWrapper {
         // No code blocks, use normal splitting
         const messages: string[] = [];
         const sentences = this.splitIntoSentences(trimmed);
-        
+
         let currentMessage = '';
         for (const sentence of sentences) {
             const testMessage = currentMessage ? `${currentMessage} ${sentence}` : sentence;
-            
+
             // Target: 50-120 chars per message for natural feel
             // If adding this sentence would make it too long (over 120 chars), start a new message
             if (testMessage.length > 120 && currentMessage) {
@@ -230,12 +246,12 @@ export class PersonaWrapper {
                 currentMessage = testMessage;
             }
         }
-        
+
         // Add the last message
         if (currentMessage.trim()) {
             messages.push(currentMessage.trim());
         }
-        
+
         // Ensure we have at least one message
         return messages.length > 0 ? messages : [trimmed];
     }
@@ -249,19 +265,19 @@ export class PersonaWrapper {
     private splitWithCodeBlocks(text: string, codeBlocks: Array<{ start: number; end: number; content: string }>): string[] {
         const messages: string[] = [];
         let lastIndex = 0;
-        
+
         for (let i = 0; i < codeBlocks.length; i++) {
             const block = codeBlocks[i];
-            
+
             // Text before this code block
             const textBefore = text.substring(lastIndex, block.start).trim();
-            
+
             if (textBefore) {
                 // Split the text before the code block normally
                 const beforeMessages = this.splitTextOnly(textBefore);
                 messages.push(...beforeMessages);
             }
-            
+
             // Always include the entire code block in one message
             // If the last message is short, append code block to it
             if (messages.length > 0 && messages[messages.length - 1].length < 100 && !messages[messages.length - 1].includes('```')) {
@@ -270,10 +286,10 @@ export class PersonaWrapper {
                 // Otherwise, create a new message for the code block
                 messages.push(block.content);
             }
-            
+
             lastIndex = block.end;
         }
-        
+
         // Handle remaining text after last code block
         const textAfter = text.substring(lastIndex).trim();
         if (textAfter) {
@@ -286,7 +302,7 @@ export class PersonaWrapper {
                 messages.push(...afterMessages);
             }
         }
-        
+
         return messages.length > 0 ? messages : [text];
     }
 
@@ -302,11 +318,11 @@ export class PersonaWrapper {
 
         const messages: string[] = [];
         const sentences = this.splitIntoSentences(text);
-        
+
         let currentMessage = '';
         for (const sentence of sentences) {
             const testMessage = currentMessage ? `${currentMessage} ${sentence}` : sentence;
-            
+
             if (testMessage.length > 120 && currentMessage) {
                 messages.push(currentMessage.trim());
                 currentMessage = sentence;
@@ -317,11 +333,11 @@ export class PersonaWrapper {
                 currentMessage = testMessage;
             }
         }
-        
+
         if (currentMessage.trim()) {
             messages.push(currentMessage.trim());
         }
-        
+
         return messages.length > 0 ? messages : [text];
     }
 
@@ -336,12 +352,12 @@ export class PersonaWrapper {
         const sentenceEndings = /([.!?。！？]\s*|\n{2,}|[，,]\s*(?=\S{10,}))/;
         const parts = text.split(sentenceEndings);
         const sentences: string[] = [];
-        
+
         let currentSentence = '';
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             if (!part) continue;
-            
+
             // If it's a sentence ending or separator
             if (/^[.!?。！？\n，,]/.test(part)) {
                 if (currentSentence) {
@@ -352,12 +368,12 @@ export class PersonaWrapper {
                 currentSentence += part;
             }
         }
-        
+
         // Add remaining sentence
         if (currentSentence.trim()) {
             sentences.push(currentSentence.trim());
         }
-        
+
         // If no sentence endings found, return the whole text
         return sentences.length > 0 ? sentences : [text];
     }
