@@ -1,3 +1,6 @@
+import * as vscode from 'vscode';
+import { CachedProblemData, UserDataStore } from '../UserDataStore';
+
 /**
  * Service for fetching and parsing Baekjoon problem descriptions
  * Based on BaekjoonHub's parsing.js approach
@@ -9,6 +12,17 @@ export interface BaekjoonProblemDescription {
     problemDescription: string;
     problemInput: string;
     problemOutput: string;
+}
+
+// Global cache instance (will be set by initializeCache)
+let userDataStoreInstance: UserDataStore | null = null;
+
+/**
+ * Initialize cache with UserDataStore instance
+ */
+export function initializeCache(userDataStore: UserDataStore): void {
+    userDataStoreInstance = userDataStore;
+    console.log('[BaekjoonProblemService] Cache initialized');
 }
 
 /**
@@ -103,11 +117,30 @@ function parseProblemDescription(html: string, problemId: string): BaekjoonProbl
 }
 
 /**
- * Fetch problem description from Baekjoon
+ * Fetch problem description from Baekjoon (with caching)
+ * @param problemId - BOJ problem ID
+ * @param forceRefresh - Force refresh even if cached
+ * @returns Problem description or null
  */
-export async function fetchProblemDescription(problemId: string): Promise<BaekjoonProblemDescription | null> {
+export async function fetchProblemDescription(problemId: string, forceRefresh: boolean = false): Promise<BaekjoonProblemDescription | null> {
+    // Check cache first
+    if (!forceRefresh && userDataStoreInstance) {
+        const cached = userDataStoreInstance.getCachedProblem(problemId);
+        if (cached) {
+            console.log(`[BaekjoonProblemService] ✅ Using cached problem data for ${problemId}`);
+            console.log(`[BaekjoonProblemService] Cached at: ${cached.cachedAt}`);
+            return {
+                problemId: cached.problemId,
+                problemDescription: cached.problemDescription,
+                problemInput: cached.problemInput,
+                problemOutput: cached.problemOutput
+            };
+        }
+    }
+
+    // Cache miss or force refresh - fetch from Baekjoon
     try {
-        console.log(`[BaekjoonProblemService] Fetching problem ${problemId}...`);
+        console.log(`[BaekjoonProblemService] 🔍 Fetching problem ${problemId} from Baekjoon...`);
         
         const response = await fetch(`https://www.acmicpc.net/problem/${problemId}`, {
             method: 'GET',

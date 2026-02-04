@@ -5,7 +5,9 @@ import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
 import { CodingStateInfo } from './CodeContextProvider';
 import { getCharacter, getAvailableCharacters } from './characters';
-import { fetchProblemDescription } from './services/BaekjoonProblemService';
+import { fetchProblemDescription, initializeCache } from './services/BaekjoonProblemService';
+import { ProblemSolutionService } from './services/ProblemSolutionService';
+import { RAGService } from './services/RAGService';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -14,6 +16,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private userDataStore: UserDataStore;
     private chatGPTService: ChatGPTService;
     private solvedAcService: SolvedAcService;
+    private problemSolutionService: ProblemSolutionService;
+    private ragService: RAGService;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -26,6 +30,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.userDataStore = userDataStore;
         this.chatGPTService = chatGPTService;
         this.solvedAcService = new SolvedAcService();
+        this.problemSolutionService = new ProblemSolutionService(apiKeyManager);
+        this.ragService = RAGService.getInstance();
+        
+        // Initialize cache in BaekjoonProblemService
+        initializeCache(userDataStore);
     }
 
     resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -97,9 +106,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'setCurrentProblem':
                     // Set current working problem
                     await this.userDataStore.setCurrentProblem(message.problemId);
-                    // Fetch problem description when problem is set
+                    // Check if problem is new and generate solution if needed
                     if (message.problemId) {
-                        await this.handleFetchProblemDescription(message.problemId);
+                        await this.handleProblemSelection(message.problemId);
                     }
                     break;
 

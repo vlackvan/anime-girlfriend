@@ -30,10 +30,27 @@ export interface StoredUserProfile {
 
 const PROFILE_KEY = 'anime-girlfriend.userProfile';
 const HINT_LEVELS_KEY = 'anime-girlfriend.hintLevels';
+const PROBLEM_CACHE_KEY = 'anime-girlfriend.problemCache';
 
 // Problem-specific hint levels (0 = no hint, 1 = idea, 2 = algorithm, 3 = pseudocode, 4 = code)
 export interface ProblemHintLevels {
     [problemId: string]: number;
+}
+
+// Cached problem data structure
+export interface CachedProblemData {
+    problemId: string;
+    problemDescription: string;
+    problemInput: string;
+    problemOutput: string;
+    tags: string[];
+    solutionSummary: string; // Natural language summary of the solution
+    cachedAt: string; // ISO timestamp
+}
+
+// Problem cache storage
+export interface ProblemCache {
+    [problemId: string]: CachedProblemData;
 }
 
 export class UserDataStore {
@@ -167,6 +184,55 @@ export class UserDataStore {
     async clearCurrentProblem(): Promise<void> {
         await this.globalState.update('anime-girlfriend.currentProblem', undefined);
         console.log('[UserDataStore] Current problem cleared');
+    }
+
+    /**
+     * Get cached problem data
+     * @param problemId - BOJ problem ID
+     * @returns Cached problem data or undefined
+     */
+    getCachedProblem(problemId: string): CachedProblemData | undefined {
+        const cache = this.globalState.get<ProblemCache>(PROBLEM_CACHE_KEY, {});
+        return cache[problemId];
+    }
+
+    /**
+     * Check if problem is cached
+     * @param problemId - BOJ problem ID
+     * @returns true if problem is cached
+     */
+    isProblemCached(problemId: string): boolean {
+        return this.getCachedProblem(problemId) !== undefined;
+    }
+
+    /**
+     * Save cached problem data
+     * @param problemData - Problem data to cache
+     */
+    async saveCachedProblem(problemData: CachedProblemData): Promise<void> {
+        const cache = this.globalState.get<ProblemCache>(PROBLEM_CACHE_KEY, {});
+        cache[problemData.problemId] = {
+            ...problemData,
+            cachedAt: new Date().toISOString()
+        };
+        await this.globalState.update(PROBLEM_CACHE_KEY, cache);
+        console.log(`[UserDataStore] Problem ${problemData.problemId} cached with solution summary`);
+    }
+
+    /**
+     * Clear cached problem data
+     * @param problemId - BOJ problem ID (optional, if not provided clears all)
+     */
+    async clearCachedProblem(problemId?: string): Promise<void> {
+        if (problemId) {
+            const cache = this.globalState.get<ProblemCache>(PROBLEM_CACHE_KEY, {});
+            delete cache[problemId];
+            await this.globalState.update(PROBLEM_CACHE_KEY, cache);
+            console.log(`[UserDataStore] Cached problem ${problemId} cleared`);
+        } else {
+            await this.globalState.update(PROBLEM_CACHE_KEY, {});
+            console.log('[UserDataStore] All cached problems cleared');
+        }
     }
 }
 

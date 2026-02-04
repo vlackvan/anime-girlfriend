@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { RAGService, LocalBOJProblem } from '../RAGService';
 import { CodeContextProvider } from '../../CodeContextProvider';
-import { StoredUserProfile, UserDataStore } from '../../UserDataStore';
+import { StoredUserProfile, UserDataStore, CachedProblemData } from '../../UserDataStore';
 import { AggregatedContext } from '../../types/PipelineTypes';
 import { SolvedAcStats } from '../../SolvedAcService';
 import { fetchProblemDescription, BaekjoonProblemDescription } from '../BaekjoonProblemService';
@@ -40,19 +40,33 @@ export class ContextAggregator {
         let ragContext = '';
         let localBOJData: LocalBOJProblem | undefined;
         let problemDescription: BaekjoonProblemDescription | undefined;
+        let cachedProblemData: CachedProblemData | undefined;
 
         // Get RAG context
         try {
             // RAG retrieval disabled by user request (using direct local lookup only)
             if (problemId) {
-                // console.log(`  [Worker A] Retrieving BOJ-specific context for problem ${problemId}...`);
-                // const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
-                // ragContext = formattedContext;
-                // console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
-                // if (documents.length > 0) {
-                //     const docTypes = documents.map(d => d.metadata.type).join(', ');
-                //     console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
-                // }
+                // Check for cached problem data first
+                console.log(`  [Worker A] Checking cache for problem ${problemId}...`);
+                const cached = this.userDataStore.getCachedProblem(problemId);
+                if (cached) {
+                    cachedProblemData = cached;
+                    console.log(`  [Worker A] ✅ Using cached problem data`);
+                    console.log(`  [Worker A]   - Cached at: ${cached.cachedAt}`);
+                    console.log(`  [Worker A]   - Tags: ${cached.tags.join(', ')}`);
+                    console.log(`  [Worker A]   - Solution summary: ${cached.solutionSummary.length} chars`);
+                    
+                    // Use cached problem description
+                    problemDescription = {
+                        problemId: cached.problemId,
+                        problemDescription: cached.problemDescription,
+                        problemInput: cached.problemInput,
+                        problemOutput: cached.problemOutput
+                    };
+                    console.log(`  [Worker A]   - Problem description: ${cached.problemDescription.length} chars`);
+                } else {
+                    console.log(`  [Worker A] ⚠️ No cached data found, will fetch from Baekjoon`);
+                }
 
                 // Get local BOJ data
                 console.log(`  [Worker A] Loading local BOJ data for problem ${problemId}...`);
@@ -64,24 +78,26 @@ export class ContextAggregator {
                     console.log(`  [Worker A] Local BOJ Data: Not found`);
                 }
 
-                // Fetch problem description from Baekjoon
-                console.log(`  [Worker A] 🔍 Fetching problem description for problem ${problemId}...`);
-                try {
-                    const description = await fetchProblemDescription(problemId);
-                    if (description) {
-                        problemDescription = description;
-                        console.log(`  [Worker A] ✅ Problem description fetched successfully`);
-                        console.log(`  [Worker A] 📊 Fetched Data:`);
-                        console.log(`  [Worker A]   - Description: ${description.problemDescription.length} chars`);
-                        console.log(`  [Worker A]   - Input: ${description.problemInput.length} chars`);
-                        console.log(`  [Worker A]   - Output: ${description.problemOutput.length} chars`);
-                        console.log(`  [Worker A] 📝 Full Description Preview:`);
-                        console.log(`  [Worker A] ${description.problemDescription.substring(0, 400)}${description.problemDescription.length > 400 ? '...' : ''}`);
-                    } else {
-                        console.log(`  [Worker A] ❌ Failed to fetch problem description`);
+                // Fetch problem description from Baekjoon only if not cached
+                if (!cachedProblemData) {
+                    console.log(`  [Worker A] 🔍 Fetching problem description for problem ${problemId}...`);
+                    try {
+                        const description = await fetchProblemDescription(problemId);
+                        if (description) {
+                            problemDescription = description;
+                            console.log(`  [Worker A] ✅ Problem description fetched successfully`);
+                            console.log(`  [Worker A] 📊 Fetched Data:`);
+                            console.log(`  [Worker A]   - Description: ${description.problemDescription.length} chars`);
+                            console.log(`  [Worker A]   - Input: ${description.problemInput.length} chars`);
+                            console.log(`  [Worker A]   - Output: ${description.problemOutput.length} chars`);
+                            console.log(`  [Worker A] 📝 Full Description Preview:`);
+                            console.log(`  [Worker A] ${description.problemDescription.substring(0, 400)}${description.problemDescription.length > 400 ? '...' : ''}`);
+                        } else {
+                            console.log(`  [Worker A] ❌ Failed to fetch problem description`);
+                        }
+                    } catch (error) {
+                        console.error(`  [Worker A] ❌ Failed to fetch problem description:`, error);
                     }
-                } catch (error) {
-                    console.error(`  [Worker A] ❌ Failed to fetch problem description:`, error);
                 }
             } else if (this.ragService.isEnabled()) {
                 // RAG retrieval disabled by user request
@@ -138,12 +154,18 @@ export class ContextAggregator {
             userTierName,
             hintLevel,
             solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined,
-            problemDescription
+            problemDescription,
+            cachedProblemData
         };
 
         // Log context summary
         console.log(`  [Worker A] Context Summary:`);
         console.log(`    - Problem ID: ${problemId || 'None'}`);
+        console.log(`    - Cached Problem Data: ${cachedProblemData ? '✅ Available' : '❌ Not available'}`);
+        if (cachedProblemData) {
+            console.log(`    - Cached Tags: ${cachedProblemData.tags.join(', ')}`);
+            console.log(`    - Solution Summary: ${cachedProblemData.solutionSummary.length} chars`);
+        }
         console.log(`    - Problem Description: ${problemDescription ? '✅ Available' : '❌ Not available'}`);
         if (problemDescription) {
             console.log(`    - Description length: ${problemDescription.problemDescription.length} chars`);

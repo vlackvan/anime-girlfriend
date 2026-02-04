@@ -53,8 +53,18 @@ export class StrategyAgent {
 
         // Build problem description section
         let problemDescriptionSection = '';
-        if (context.problemDescription) {
-            const desc = context.problemDescription;
+        let solutionSummarySection = '';
+        
+        // Use cached data if available, otherwise use fetched description
+        const desc = context.cachedProblemData 
+            ? {
+                problemDescription: context.cachedProblemData.problemDescription,
+                problemInput: context.cachedProblemData.problemInput,
+                problemOutput: context.cachedProblemData.problemOutput
+            }
+            : context.problemDescription;
+            
+        if (desc) {
             console.log(`  [Worker B] ✅ Problem description available in context`);
             console.log(`  [Worker B] 📊 Problem Description Data:`);
             console.log(`  [Worker B]   - Description: ${desc.problemDescription.length} chars`);
@@ -75,10 +85,21 @@ ${desc.problemOutput}
 `;
             console.log(`  [Worker B] ✅ Problem description section added to prompt`);
             console.log(`  [Worker B]   - Section length: ${problemDescriptionSection.length} chars`);
-            console.log(`  [Worker B]   - This will be included in the system prompt for hint generation`);
         } else {
             console.log(`  [Worker B] ⚠️ Problem description NOT available in context`);
             console.log(`  [Worker B] ⚠️ StrategyAgent will generate hints WITHOUT problem description`);
+        }
+
+        // Add solution summary if cached
+        if (context.cachedProblemData && context.cachedProblemData.solutionSummary) {
+            solutionSummarySection = `
+### SOLUTION SUMMARY (Reference)
+${context.cachedProblemData.solutionSummary}
+
+Note: This is a cached solution summary. Use it as reference but don't reveal it directly unless the user explicitly asks for the solution.
+`;
+            console.log(`  [Worker B] ✅ Solution summary available from cache`);
+            console.log(`  [Worker B]   - Summary length: ${context.cachedProblemData.solutionSummary.length} chars`);
         }
 
         const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
@@ -105,6 +126,8 @@ Problem Information:
 - Recommended Approach: ${recommendedApproach}
 
 ${problemDescriptionSection}
+
+${solutionSummarySection}
 
 ${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
 
