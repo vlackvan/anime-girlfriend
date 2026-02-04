@@ -272,6 +272,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     content: fullResponse
                 });
             },
+            onMessage: (message, isLast) => {
+                // Send a split message
+                this.postMessage({
+                    type: 'botMessageSplit',
+                    content: message,
+                    isLast: isLast
+                });
+            },
             onError: (error) => {
                 console.error('[ChatPanel] ChatGPT Error:', error);
                 console.error('[ChatPanel] Error details:', error.message, error.stack);

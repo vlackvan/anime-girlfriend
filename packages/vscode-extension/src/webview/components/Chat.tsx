@@ -104,13 +104,42 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
 
                 case 'botMessageComplete':
                     // Mark streaming as complete
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === streamingMessageId
-                            ? { ...msg, content: message.content, isStreaming: false }
-                            : msg
-                    ));
+                    setMessages(prev => {
+                        // If content is empty, remove the streaming message instead
+                        if (!message.content || message.content.trim().length === 0) {
+                            return prev.filter(msg => msg.id !== streamingMessageId);
+                        }
+                        return prev.map(msg =>
+                            msg.id === streamingMessageId
+                                ? { ...msg, content: message.content, isStreaming: false }
+                                : msg
+                        );
+                    });
                     setStreamingMessageId(null);
                     setIsLoading(false);
+                    break;
+
+                case 'botMessageSplit':
+                    // Add a new split message (multiple messages for long responses)
+                    const splitMessageId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                    setMessages(prev => {
+                        // Remove the streaming message if it exists (whether empty or not)
+                        const filtered = prev.filter(msg => msg.id !== streamingMessageId);
+                        // Only add message if content is not empty
+                        if (message.content && message.content.trim().length > 0) {
+                            return [...filtered, {
+                                id: splitMessageId,
+                                author: 'bot',
+                                content: message.content,
+                                isStreaming: false
+                            }];
+                        }
+                        return filtered;
+                    });
+                    if (message.isLast) {
+                        setStreamingMessageId(null);
+                        setIsLoading(false);
+                    }
                     break;
 
                 case 'botMessageError':
@@ -221,14 +250,14 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                                     />
                                     <div className="message-content">
                                         <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                                             {msg.content || (msg.isStreaming && '...')}
                                         </div>
                                     </div>
                                 </>
                             )}
                             {msg.author === 'user' && (
-                                <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                                     {msg.content}
                                 </div>
                             )}
