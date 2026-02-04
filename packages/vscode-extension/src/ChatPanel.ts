@@ -5,6 +5,7 @@ import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
 import { CodingStateInfo } from './CodeContextProvider';
 import { getCharacter, getAvailableCharacters } from './characters';
+import { BOJProblemParser } from './services/BOJProblemParser';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -13,6 +14,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private userDataStore: UserDataStore;
     private chatGPTService: ChatGPTService;
     private solvedAcService: SolvedAcService;
+    private bojProblemParser: BOJProblemParser;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -25,6 +27,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.userDataStore = userDataStore;
         this.chatGPTService = chatGPTService;
         this.solvedAcService = new SolvedAcService();
+        this.bojProblemParser = new BOJProblemParser();
     }
 
     resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -114,6 +117,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'getRecommendedProblems':
                     // Fetch recommended problems based on user tier
                     await this.handleGetRecommendedProblems(message.data);
+                    break;
+
+                case 'fetchBOJProblem':
+                    // Fetch and parse BOJ problem statement
+                    await this.handleFetchBOJProblem(message.problemId);
                     break;
             }
         });
@@ -288,6 +296,24 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             this.postMessage({
                 type: 'recommendedProblems',
                 data: []
+            });
+        }
+    }
+
+    private async handleFetchBOJProblem(problemId: string) {
+        try {
+            console.log('[ChatPanel] Fetching BOJ problem:', problemId);
+            const problemData = await this.bojProblemParser.fetchProblem(problemId);
+
+            this.postMessage({
+                type: 'bojProblemFetched',
+                data: problemData
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to fetch BOJ problem:', error);
+            this.postMessage({
+                type: 'bojProblemError',
+                error: error instanceof Error ? error.message : 'Failed to fetch problem'
             });
         }
     }

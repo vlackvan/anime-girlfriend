@@ -8,6 +8,7 @@ import { ChatGPTService } from './ChatGPTService';
 import { RAGService } from './services/RAGService';
 import { IngestionService } from './services/IngestionService';
 import { CodeContextProvider } from './CodeContextProvider';
+import { BOJProblemParser } from './services/BOJProblemParser';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('[Anime Girlfriend] Extension activating...');
@@ -267,6 +268,44 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage(`Successfully ingested ${count} BOJ problem tags into RAG memory!`);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to ingest problem tags: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        }),
+        vscode.commands.registerCommand('anime-girlfriend.testBOJParser', async () => {
+            const problemId = await vscode.window.showInputBox({
+                prompt: 'Enter BOJ problem number to test parsing',
+                placeHolder: 'e.g., 1000',
+                validateInput: (value) => {
+                    if (!/^\d+$/.test(value)) {
+                        return 'Please enter a valid problem number';
+                    }
+                    return null;
+                }
+            });
+
+            if (!problemId) {
+                return; // User cancelled
+            }
+
+            try {
+                vscode.window.showInformationMessage(`Fetching BOJ problem ${problemId}...`);
+                const parser = new BOJProblemParser();
+                const problemData = await parser.fetchProblem(problemId);
+
+                // Format as markdown and show in new document
+                const markdown = parser.formatAsMarkdown(problemData);
+                const doc = await vscode.workspace.openTextDocument({
+                    content: markdown,
+                    language: 'markdown'
+                });
+                await vscode.window.showTextDocument(doc);
+
+                vscode.window.showInformationMessage(
+                    `✅ Successfully parsed BOJ ${problemId}: ${problemData.title}`
+                );
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    `Failed to parse BOJ problem: ${error instanceof Error ? error.message : 'Unknown error'}`
+                );
             }
         })
     );

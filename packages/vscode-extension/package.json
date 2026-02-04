@@ -60,6 +60,11 @@
                 "command": "anime-girlfriend.testRAG",
                 "title": "RAG: Test Query (Debug)",
                 "category": "Anime Girlfriend"
+            },
+            {
+                "command": "anime-girlfriend.testBOJParser",
+                "title": "Test BOJ Problem Parser",
+                "category": "Anime Girlfriend"
             }
         ],
         "viewsContainers": {
@@ -149,6 +154,7 @@
         "init-boj-tags": "node scripts/fetch-boj-tags.js"
     },
     "devDependencies": {
+        "@types/cheerio": "^0.22.35",
         "@types/node": "^18.0.0",
         "@types/node-fetch": "^2.6.13",
         "@types/pg": "^8.10.0",
@@ -160,6 +166,7 @@
     },
     "dependencies": {
         "@xenova/transformers": "^2.10.0",
+        "cheerio": "^1.2.0",
         "glob": "^10.3.0",
         "node-fetch": "^2.7.0",
         "pg": "^8.11.0",
