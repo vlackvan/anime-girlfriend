@@ -1850,7 +1850,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+    background-image: var(--bongo-background);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     overflow: hidden;
 }
 

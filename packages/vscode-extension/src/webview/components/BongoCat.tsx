@@ -47,7 +47,12 @@ export const BongoCat: React.FC = () => {
     };
 
     return (
-        <div className="bongo-cat-container">
+        <div
+            className="bongo-cat-container"
+            style={{
+                '--bongo-background': `url(${window.assetBaseUri?.bongoBackground})`
+            } as React.CSSProperties}
+        >
             <img
                 src={getImageSrc()}
                 alt="Bongo Cat"

@@ -346,6 +346,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             const bongoRightUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_right.png')
             );
+            const bongoBackgroundUri = webview.asWebviewUri(
+                vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongobackground.png')
+            );
             const loadingImageUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'loading.png')
             );
@@ -380,6 +383,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       bongoIdle: "${bongoIdleUri}",
       bongoLeft: "${bongoLeftUri}",
       bongoRight: "${bongoRightUri}",
+      bongoBackground: "${bongoBackgroundUri}",
       loading: "${loadingImageUri}"
     };
     window.vscode = acquireVsCodeApi();
