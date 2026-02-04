@@ -51,6 +51,57 @@ export class StrategyAgent {
             'Show full solution code (last resort)'
         ];
 
+        // Build problem description section
+        let problemDescriptionSection = '';
+        let solutionSummarySection = '';
+        
+        // Use cached data if available, otherwise use fetched description
+        const desc = context.cachedProblemData 
+            ? {
+                problemDescription: context.cachedProblemData.problemDescription,
+                problemInput: context.cachedProblemData.problemInput,
+                problemOutput: context.cachedProblemData.problemOutput
+            }
+            : context.problemDescription;
+            
+        if (desc) {
+            console.log(`  [Worker B] ✅ Problem description available in context`);
+            console.log(`  [Worker B] 📊 Problem Description Data:`);
+            console.log(`  [Worker B]   - Description: ${desc.problemDescription.length} chars`);
+            console.log(`  [Worker B]   - Input: ${desc.problemInput.length} chars`);
+            console.log(`  [Worker B]   - Output: ${desc.problemOutput.length} chars`);
+            console.log(`  [Worker B] 📝 Full Problem Description (will be included in prompt):`);
+            console.log(`  [Worker B] ${desc.problemDescription.substring(0, 500)}${desc.problemDescription.length > 500 ? '...' : ''}`);
+            
+            problemDescriptionSection = `
+### PROBLEM DESCRIPTION
+${desc.problemDescription}
+
+### INPUT FORMAT
+${desc.problemInput}
+
+### OUTPUT FORMAT
+${desc.problemOutput}
+`;
+            console.log(`  [Worker B] ✅ Problem description section added to prompt`);
+            console.log(`  [Worker B]   - Section length: ${problemDescriptionSection.length} chars`);
+        } else {
+            console.log(`  [Worker B] ⚠️ Problem description NOT available in context`);
+            console.log(`  [Worker B] ⚠️ StrategyAgent will generate hints WITHOUT problem description`);
+        }
+
+        // Add solution summary if cached
+        if (context.cachedProblemData && context.cachedProblemData.solutionSummary) {
+            solutionSummarySection = `
+### SOLUTION SUMMARY (Reference)
+${context.cachedProblemData.solutionSummary}
+
+Note: This is a cached solution summary. Use it as reference but don't reveal it directly unless the user explicitly asks for the solution.
+`;
+            console.log(`  [Worker B] ✅ Solution summary available from cache`);
+            console.log(`  [Worker B]   - Summary length: ${context.cachedProblemData.solutionSummary.length} chars`);
+        }
+
         const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
 
 CRITICAL RULES:
@@ -74,6 +125,10 @@ Problem Information:
 - Tags: ${problemTags.join(', ')}
 - Recommended Approach: ${recommendedApproach}
 
+${problemDescriptionSection}
+
+${solutionSummarySection}
+
 ${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
 
 Your task: Generate a hint at level ${hintLevel} that helps the user progress without giving away the solution.
@@ -91,6 +146,10 @@ HINT LEVEL RESTRICTIONS (ENFORCE STRICTLY):
 IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code blocks, markdown formatting, or detailed explanations at levels 0-2. Just the hint content itself, in plain Korean text.`;
 
         console.log(`  [Worker B] System Prompt Length: ${systemPrompt.length} chars`);
+        console.log(`  [Worker B] 📋 System Prompt includes problem description: ${problemDescriptionSection.length > 0 ? '✅ YES' : '❌ NO'}`);
+        if (problemDescriptionSection.length > 0) {
+            console.log(`  [Worker B] 📋 Problem description section length in prompt: ${problemDescriptionSection.length} chars`);
+        }
         console.log(`  [Worker B] Calling OpenAI API (gpt-4o)...`);
 
         try {

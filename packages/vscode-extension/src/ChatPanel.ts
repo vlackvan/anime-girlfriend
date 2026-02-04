@@ -5,6 +5,9 @@ import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
 import { CodingStateInfo } from './CodeContextProvider';
 import { getCharacter, getAvailableCharacters } from './characters';
+import { fetchProblemDescription, initializeCache } from './services/BaekjoonProblemService';
+import { ProblemSolutionService } from './services/ProblemSolutionService';
+import { RAGService } from './services/RAGService';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -13,6 +16,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     private userDataStore: UserDataStore;
     private chatGPTService: ChatGPTService;
     private solvedAcService: SolvedAcService;
+    private problemSolutionService: ProblemSolutionService;
+    private ragService: RAGService;
 
     constructor(
         extensionUri: vscode.Uri,
@@ -25,6 +30,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         this.userDataStore = userDataStore;
         this.chatGPTService = chatGPTService;
         this.solvedAcService = new SolvedAcService();
+        this.problemSolutionService = new ProblemSolutionService(apiKeyManager);
+        this.ragService = RAGService.getInstance();
+        
+        // Initialize cache in BaekjoonProblemService
+        initializeCache(userDataStore);
     }
 
     resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -104,6 +114,17 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'setCurrentProblem':
                     // Set current working problem and send its hint level
                     await this.userDataStore.setCurrentProblem(message.problemId);
+                    // Check if problem is new and generate solution if needed
+                    if (message.problemId) {
+                        await this.handleProblemSelection(message.problemId);
+                    }
+                    break;
+
+                case 'fetchProblemDescription':
+                    // Explicitly fetch problem description
+                    if (message.problemId) {
+                        await this.handleFetchProblemDescription(message.problemId);
+                    }
                     // Send hint level for the selected problem
                     this.postMessage({
                         type: 'hintLevel',
@@ -289,6 +310,33 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 type: 'recommendedProblems',
                 data: []
             });
+        }
+    }
+
+    private async handleFetchProblemDescription(problemId: string) {
+        try {
+            console.log(`[ChatPanel] 🔍 Fetching problem description for problem ${problemId}...`);
+            const startTime = Date.now();
+            const description = await fetchProblemDescription(problemId);
+            const fetchTime = Date.now() - startTime;
+            
+            if (description) {
+                console.log(`[ChatPanel] ✅ Problem description fetched successfully for problem ${problemId} (${fetchTime}ms)`);
+                console.log(`[ChatPanel] Description length: ${description.problemDescription.length} chars`);
+                console.log(`[ChatPanel] Input length: ${description.problemInput.length} chars`);
+                console.log(`[ChatPanel] Output length: ${description.problemOutput.length} chars`);
+                console.log(`[ChatPanel] Description preview: ${description.problemDescription.substring(0, 200)}...`);
+                // Problem description is now available in context when needed
+                // No need to send to UI as per user's request (current UI method maintained)
+            } else {
+                console.log(`[ChatPanel] ❌ Failed to fetch problem description for problem ${problemId}`);
+            }
+        } catch (error) {
+            console.error(`[ChatPanel] ❌ Error fetching problem description for problem ${problemId}:`, error);
+            if (error instanceof Error) {
+                console.error(`[ChatPanel] Error message: ${error.message}`);
+                console.error(`[ChatPanel] Error stack: ${error.stack}`);
+            }
         }
     }
 

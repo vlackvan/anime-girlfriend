@@ -38,6 +38,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize RAG system
     initializeRAG(ragService, ingestionService, context.extensionPath);
 
+    // Initialize BaekjoonProblemService cache
+    const { initializeCache } = await import('./services/BaekjoonProblemService');
+    initializeCache(userDataStore);
+
     // Initialize Chat Panel
     const chatPanel = new ChatPanel(
         context.extensionUri,
