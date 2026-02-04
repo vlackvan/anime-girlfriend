@@ -5,7 +5,7 @@ import { AggregatedContext } from '../../types/PipelineTypes';
  * Generates pedagogical hints without persona
  */
 export class StrategyAgent {
-    constructor() {}
+    constructor() { }
 
     /**
      * Generate strategy hint based on context
@@ -60,6 +60,7 @@ CRITICAL RULES:
 4. Use Korean language
 5. Be encouraging but don't solve for them
 6. STRICTLY follow the hint level - do NOT provide more information than the level allows
+7. If user asks "is my approach correct?", answer ONLY Yes/No with brief reason (no new info)
 
 Current Situation:
 - Problem ID: ${problemId}
@@ -77,14 +78,14 @@ ${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
 
 Your task: Generate a hint at level ${hintLevel} that helps the user progress without giving away the solution.
 
-HINT LEVEL RESTRICTIONS:
-- Level 0: Give ONLY a vague direction or general idea. NO algorithm names, NO data structures, NO code. Just a conceptual nudge (1 sentence max).
-- Level 1: Suggest algorithm tags or data structure names ONLY. NO implementation details, NO pseudocode (1 sentence max).
-- Level 2: Provide a high-level approach or pseudocode outline. NO actual code (2 sentences max).
-- Level 3: Show partial code with key logic. But leave critical parts for the user to fill (2-3 sentences max).
-- Level 4: Show full solution code (last resort only).
+HINT LEVEL RESTRICTIONS (ENFORCE STRICTLY):
+- Level 0 (Concept & Direction): Give ONLY a vague direction. FORBIDDEN: Do NOT mention algorithm names (e.g., "BFS", "DP", "Greedy"). Describe conceptually only (e.g., "탐색을 층별로 진행해보세요"). 1 sentence max.
+- Level 1 (Key Terms): Reveal algorithm names and data structure names ONLY (e.g., "이 문제는 BFS와 큐를 사용해요"). NO implementation details, NO pseudocode. 1 sentence max.
+- Level 2 (Logic Outline): Explain HOW it works without code. Provide step-by-step logical outline or pseudocode. 2-3 sentences max.
+- Level 3 (Partial Code): Show key code snippets (initialization, loop structure) but HIDE the critical core lines. 2-3 sentences + code snippet.
+- Level 4 (Full Solution): Reveal the full solution code. Last resort only.
 
-IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code blocks, markdown formatting, or detailed explanations. Just the hint content itself, in plain Korean text.`;
+IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code blocks, markdown formatting, or detailed explanations at levels 0-2. Just the hint content itself, in plain Korean text.`;
 
         console.log(`  [Worker B] System Prompt Length: ${systemPrompt.length} chars`);
         console.log(`  [Worker B] Calling OpenAI API (gpt-4o)...`);

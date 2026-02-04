@@ -45,7 +45,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
 
                 case 'sendMessage':
-                    await this.handleChatMessage(message.content, false, message.images);
+                    await this.handleChatMessage(message.content, false, message.images, message.shouldAdvanceHint);
                     break;
 
                 case 'heartAction':
@@ -278,9 +278,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
-    private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[]) {
+    private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[], shouldAdvanceHint: boolean = false) {
         if (!isHidden) {
             console.log('[ChatPanel] User message:', content);
+            console.log('[ChatPanel] shouldAdvanceHint:', shouldAdvanceHint);
             console.log('[ChatPanel] Starting chat pipeline...');
         }
 
@@ -311,11 +312,18 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         token: token
                     });
                 },
-                onComplete: (fullResponse) => {
+                onComplete: (fullResponse, newHintLevel) => {
                     this.postMessage({
                         type: 'botMessageComplete',
                         content: fullResponse
                     });
+                    // Send updated hint level to frontend
+                    if (typeof newHintLevel === 'number') {
+                        this.postMessage({
+                            type: 'hintLevel',
+                            level: newHintLevel
+                        });
+                    }
                 },
                 onError: (error) => {
                     console.error('[ChatPanel] ChatGPT Error:', error);
@@ -325,7 +333,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         error: error.message
                     });
                 }
-            }, images);
+            }, images, shouldAdvanceHint);
             console.log('[ChatPanel] sendMessage() call completed');
         } catch (error) {
             console.error('[ChatPanel] Exception in sendMessage():', error);

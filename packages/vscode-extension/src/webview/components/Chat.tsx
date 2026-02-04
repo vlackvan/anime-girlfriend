@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Character, UserProfile } from '../personality/types';
 import { BongoCat } from './BongoCat';
 import { ProblemSelector } from './ProblemSelector';
-import { RecommendedQuestions, CodingState } from './RecommendedQuestions';
+import { RecommendedQuestions, CodingState, HintPhase } from './RecommendedQuestions';
 
 interface Message {
     id: string;
@@ -24,6 +24,8 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     const [currentProblem, setCurrentProblem] = useState<string | null>(null);
     const [showProblemSelector, setShowProblemSelector] = useState(false);
     const [codingState, setCodingState] = useState<CodingState>('NOT_STARTED');
+    const [hintLevel, setHintLevel] = useState<number>(0);
+    const [hintPhase, setHintPhase] = useState<HintPhase>('DEFAULT');
 
     useEffect(() => {
         console.log('Chat component mounted v2.1 - checking icons');
@@ -167,6 +169,13 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                         setCodingState(message.data.state);
                     }
                     break;
+
+                case 'hintLevel':
+                    // Update hint level from backend
+                    if (typeof message.level === 'number') {
+                        setHintLevel(message.level);
+                    }
+                    break;
             }
         };
 
@@ -227,7 +236,7 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     };
 
     // Handle recommended question click
-    const handleQuestionClick = (question: string) => {
+    const handleQuestionClick = (question: string, shouldAdvanceHint: boolean, advancePhase: boolean) => {
         if (isLoading) return;
 
         const userMessage: Message = {
@@ -238,9 +247,20 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
 
         setMessages(prev => [...prev, userMessage]);
 
+        // If advancePhase is true, move from DEFAULT to ADVANCE phase
+        if (advancePhase) {
+            setHintPhase('ADVANCE');
+        }
+
+        // If shouldAdvanceHint is true (clicked advance button), reset phase to DEFAULT for next level
+        if (shouldAdvanceHint) {
+            setHintPhase('DEFAULT');
+        }
+
         window.vscode.postMessage({
             type: 'sendMessage',
-            content: question
+            content: question,
+            shouldAdvanceHint: shouldAdvanceHint
         });
 
         setIsLoading(true);
@@ -331,6 +351,8 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                 {currentProblem && (
                     <RecommendedQuestions
                         codingState={codingState}
+                        hintLevel={hintLevel}
+                        hintPhase={hintPhase}
                         onQuestionClick={handleQuestionClick}
                         disabled={isLoading}
                     />

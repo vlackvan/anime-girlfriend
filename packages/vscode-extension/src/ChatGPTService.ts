@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 export interface StreamCallbacks {
     onToken: (token: string) => void;
-    onComplete: (fullResponse: string) => void;
+    onComplete: (fullResponse: string, newHintLevel?: number) => void;
     onError: (error: Error) => void;
 }
 
@@ -102,9 +102,10 @@ export class ChatGPTService {
     /**
      * Orchestrator: Send a message and stream the response using 3-step Worker pipeline
      */
-    async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
+    async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[], shouldAdvanceHint: boolean = false): Promise<void> {
         console.log('[ChatGPTService] sendMessage() called with message length:', userMessage.length);
-        
+        console.log('[ChatGPTService] shouldAdvanceHint:', shouldAdvanceHint);
+
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
             console.error('[ChatGPTService] No API key found');
@@ -154,7 +155,7 @@ export class ChatGPTService {
 
                 strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
                 console.log('[ChatGPTService] Strategy hint generation completed, hint length:', strategyHint.length);
-                
+
                 // Log Worker B output
                 console.log(`\n✅ [Worker B] Strategy Hint Generated:`);
                 console.log(`  - Hint Level: ${context.hintLevel}`);
@@ -162,9 +163,14 @@ export class ChatGPTService {
                 console.log(`  - Hint Content: "${strategyHint}"`);
                 console.log(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
 
-                // Increment hint level for this problem
-                const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
-                console.log(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
+                // Only increment hint level if shouldAdvanceHint is true
+                if (shouldAdvanceHint) {
+                    const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
+                    console.log(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
+                    context.hintLevel = newHintLevel; // Update context for later use
+                } else {
+                    console.log(`  - Hint Level NOT incremented (shouldAdvanceHint=false)`);
+                }
             } else {
                 console.log(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
                 console.log(`\n📦 [Worker B → Worker C] Using original message`);
@@ -207,7 +213,7 @@ export class ChatGPTService {
             console.log(`[${new Date().toISOString()}] Pipeline Completed`);
             console.log(`${'='.repeat(80)}\n`);
 
-            callbacks.onComplete(finalResponse);
+            callbacks.onComplete(finalResponse, context.hintLevel);
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
