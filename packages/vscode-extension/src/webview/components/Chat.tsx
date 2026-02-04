@@ -3,6 +3,7 @@ import { Character, UserProfile } from '../personality/types';
 import { BongoCat } from './BongoCat';
 import { ProblemSelector } from './ProblemSelector';
 import { RecommendedQuestions, CodingState, HintPhase } from './RecommendedQuestions';
+import { getCharacter } from '../../characters';
 
 interface Message {
     id: string;
@@ -18,6 +19,9 @@ interface ChatProps {
 }
 
 export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 0 }) => {
+    // Get character definition
+    const characterDef = getCharacter(character);
+
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
     const [isBongoCatOpen, setIsBongoCatOpen] = useState(true);
@@ -122,13 +126,42 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
 
                 case 'botMessageComplete':
                     // Mark streaming as complete
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === streamingMessageId
-                            ? { ...msg, content: message.content, isStreaming: false }
-                            : msg
-                    ));
+                    setMessages(prev => {
+                        // If content is empty, remove the streaming message instead
+                        if (!message.content || message.content.trim().length === 0) {
+                            return prev.filter(msg => msg.id !== streamingMessageId);
+                        }
+                        return prev.map(msg =>
+                            msg.id === streamingMessageId
+                                ? { ...msg, content: message.content, isStreaming: false }
+                                : msg
+                        );
+                    });
                     setStreamingMessageId(null);
                     setIsLoading(false);
+                    break;
+
+                case 'botMessageSplit':
+                    // Add a new split message (multiple messages for long responses)
+                    const splitMessageId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                    setMessages(prev => {
+                        // Remove the streaming message if it exists (whether empty or not)
+                        const filtered = prev.filter(msg => msg.id !== streamingMessageId);
+                        // Only add message if content is not empty
+                        if (message.content && message.content.trim().length > 0) {
+                            return [...filtered, {
+                                id: splitMessageId,
+                                author: 'bot',
+                                content: message.content,
+                                isStreaming: false
+                            }];
+                        }
+                        return filtered;
+                    });
+                    if (message.isLast) {
+                        setStreamingMessageId(null);
+                        setIsLoading(false);
+                    }
                     break;
 
                 case 'botMessageError':
@@ -273,11 +306,11 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     <div className="chat-title">🍑MomoTalk</div>
                     <div className="chat-header-info">
                         <img
-                            src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                            src={window.assetBaseUri?.[character] || ''}
                             alt={character}
                             className="avatar"
                         />
-                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                        <span className="name">{characterDef.config.name}</span>
                         <div className="status-indicator">
                             <span className="status-dot"></span>
                             <span className="status-text">온라인</span>
@@ -303,20 +336,20 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                             {msg.author === 'bot' && (
                                 <>
                                     <img
-                                        src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                        src={window.assetBaseUri?.[character] || ''}
                                         alt={character}
                                         className="avatar"
                                     />
                                     <div className="message-content">
-                                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
-                                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                        <span className="name">{characterDef.config.name}</span>
+                                        <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                                             {msg.content || (msg.isStreaming && '...')}
                                         </div>
                                     </div>
                                 </>
                             )}
                             {msg.author === 'user' && (
-                                <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`}>
+                                <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                                     {msg.content}
                                 </div>
                             )}
@@ -325,12 +358,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     {isLoading && !streamingMessageId && (
                         <div className="message bot">
                             <img
-                                src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                src={window.assetBaseUri?.[character] || ''}
                                 alt={character}
                                 className="avatar"
                             />
                             <div className="message-content">
-                                <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                <span className="name">{characterDef.config.name}</span>
                                 <div className="bubble typing">
                                     <span>.</span><span>.</span><span>.</span>
                                 </div>

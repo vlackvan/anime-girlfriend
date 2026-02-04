@@ -1,5 +1,5 @@
-// Character types
-export type Character = 'aru' | 'chihiro';
+// Character types - re-export from characters module for backward compatibility
+export type { CharacterId as Character } from '../../characters';
 
 // User Essays for Implicit Personality Extraction
 export interface UserEssays {

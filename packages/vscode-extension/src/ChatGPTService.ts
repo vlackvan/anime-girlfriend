@@ -20,6 +20,7 @@ export interface ChatMessage {
 export interface StreamCallbacks {
     onToken: (token: string) => void;
     onComplete: (fullResponse: string, newHintLevel?: number) => void;
+    onMessage?: (message: string, isLast: boolean) => void; // For split messages
     onError: (error: Error) => void;
 }
 

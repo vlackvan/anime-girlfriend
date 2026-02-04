@@ -12,10 +12,7 @@ declare global {
             postMessage: (message: any) => void;
         };
         assetBaseUri: {
-            aru: string;
-            chihiro: string;
-            aruPortrait: string;
-            chihiroPortrait: string;
+            [key: string]: string; // Dynamic character assets: { aru, aruPortrait, chihiro, chihiroPortrait, ... }
             bongoIdle: string;
             bongoLeft: string;
             bongoRight: string;

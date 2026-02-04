@@ -4,6 +4,7 @@ import { UserDataStore, StoredUserProfile } from './UserDataStore';
 import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
 import { CodingStateInfo } from './CodeContextProvider';
+import { getCharacter, getAvailableCharacters } from './characters';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -325,6 +326,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         });
                     }
                 },
+                onMessage: (message, isLast) => {
+                    // Send a split message
+                    this.postMessage({
+                        type: 'botMessageSplit',
+                        content: message,
+                        isLast: isLast
+                    });
+                },
                 onError: (error) => {
                     console.error('[ChatPanel] ChatGPT Error:', error);
                     console.error('[ChatPanel] Error details:', error.message, error.stack);
@@ -384,12 +393,31 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             const styleUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'styles.css')
             );
-            const aruImageUri = webview.asWebviewUri(
-                vscode.Uri.joinPath(this.extensionUri, 'assets', 'aru.png')
-            );
-            const chihiroImageUri = webview.asWebviewUri(
-                vscode.Uri.joinPath(this.extensionUri, 'assets', 'chihiro.png')
-            );
+            // Load character images from character registry
+            const characters = getAvailableCharacters();
+
+            const characterImageUris: Record<string, string> = {};
+            const characterPortraitUris: Record<string, string> = {};
+
+            for (const charId of characters) {
+                const charDef = getCharacter(charId);
+                const imageUri = webview.asWebviewUri(
+                    vscode.Uri.joinPath(this.extensionUri, charDef.config.imagePath)
+                );
+                const portraitUri = webview.asWebviewUri(
+                    vscode.Uri.joinPath(this.extensionUri, charDef.config.portraitPath)
+                );
+                characterImageUris[charId] = imageUri.toString();
+                characterPortraitUris[charId] = portraitUri.toString();
+            }
+
+            // Build asset URI object string for JavaScript
+            const assetUriEntries: string[] = [];
+            for (const charId of characters) {
+                assetUriEntries.push(`${charId}: "${characterImageUris[charId]}"`);
+                assetUriEntries.push(`${charId}Portrait: "${characterPortraitUris[charId]}"`);
+            }
+
             const bongoIdleUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'bongo_middle.png')
             );
@@ -404,12 +432,6 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             );
             const loadingImageUri = webview.asWebviewUri(
                 vscode.Uri.joinPath(this.extensionUri, 'assets', 'loading.png')
-            );
-            const aruPortraitUri = webview.asWebviewUri(
-                vscode.Uri.joinPath(this.extensionUri, 'assets', 'Aru_Portrait.webp')
-            );
-            const chihiroPortraitUri = webview.asWebviewUri(
-                vscode.Uri.joinPath(this.extensionUri, 'assets', 'Chihiro_portrait.webp')
             );
 
             console.log('[ChatPanel] Extension URI:', this.extensionUri.toString());
@@ -429,10 +451,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   <div id="root"></div>
   <script>
     window.assetBaseUri = {
-      aru: "${aruImageUri}",
-      chihiro: "${chihiroImageUri}",
-      aruPortrait: "${aruPortraitUri}",
-      chihiroPortrait: "${chihiroPortraitUri}",
+      ${assetUriEntries.join(',\n      ')},
       bongoIdle: "${bongoIdleUri}",
       bongoLeft: "${bongoLeftUri}",
       bongoRight: "${bongoRightUri}",

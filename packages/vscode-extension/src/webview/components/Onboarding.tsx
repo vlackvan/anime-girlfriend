@@ -1,20 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Character } from '../personality/types';
+import { getCharacter, getAvailableCharacters } from '../../characters';
 
 interface OnboardingProps {
     onCharacterSelect: (character: Character) => void;
 }
-
-const characterInfo = {
-    aru: {
-        name: 'Aru',
-        description: '잔소리가 많고 제멋대로지만, 사실은 당신을 깊이 아끼고 있어요. 츤데레 매력의 소유자!'
-    },
-    chihiro: {
-        name: 'Chihiro',
-        description: '논리적이고 분석적인 천재 해커. 당신이 문제를 체계적으로 해결하도록 도와줍니다.'
-    }
-};
 
 // Crystalline SVG pattern for popup header left decoration
 const CrystallineLeftPattern: React.FC = () => (
@@ -60,6 +50,7 @@ const CrystallineRightPattern: React.FC = () => (
 export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => {
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
     const [showCinematicOverlay, setShowCinematicOverlay] = useState(true);
+    const availableCharacters = getAvailableCharacters();
 
     // Hide cinematic overlay after 3 seconds
     useEffect(() => {
@@ -90,27 +81,22 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
 
             {/* Full-screen side-by-side character images */}
             <div className="character-carousel">
-                <div
-                    className={`character-panel ${selectedCharacter === 'aru' ? 'selected' : ''}`}
-                    onClick={() => handleCharacterClick('aru')}
-                >
-                    <img
-                        src={window.assetBaseUri?.aruPortrait || window.assetBaseUri?.aru || ''}
-                        alt="Aru"
-                        className="character-portrait"
-                    />
-                </div>
-
-                <div
-                    className={`character-panel ${selectedCharacter === 'chihiro' ? 'selected' : ''}`}
-                    onClick={() => handleCharacterClick('chihiro')}
-                >
-                    <img
-                        src={window.assetBaseUri?.chihiroPortrait || window.assetBaseUri?.chihiro || ''}
-                        alt="Chihiro"
-                        className="character-portrait"
-                    />
-                </div>
+                {availableCharacters.map((characterId) => {
+                    const character = getCharacter(characterId);
+                    return (
+                        <div
+                            key={characterId}
+                            className={`character-panel ${selectedCharacter === characterId ? 'selected' : ''}`}
+                            onClick={() => handleCharacterClick(characterId)}
+                        >
+                            <img
+                                src={window.assetBaseUri?.[`${characterId}Portrait`] || window.assetBaseUri?.[characterId] || ''}
+                                alt={character.config.name}
+                                className="character-portrait"
+                            />
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Popup box - only appears when character is selected */}
@@ -120,7 +106,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
                     <div className="popup-header">
                         <CrystallineLeftPattern />
                         <div className="popup-header-content">
-                            <h2>{characterInfo[selectedCharacter].name}</h2>
+                            <h2>{getCharacter(selectedCharacter).config.name}</h2>
                         </div>
                         <div className="popup-header-overlay" />
                     </div>
@@ -129,7 +115,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
                     <div className="popup-body">
                         <CrystallineRightPattern />
                         <div className="popup-content">
-                            <p>{characterInfo[selectedCharacter].description}</p>
+                            <p>{getCharacter(selectedCharacter).config.description}</p>
                         </div>
                     </div>
                 </div>
