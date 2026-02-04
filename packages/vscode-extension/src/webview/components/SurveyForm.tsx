@@ -238,7 +238,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                     </div>
 
                     <div className="form-group">
-                        <label>3. [Goal] 3년 뒤 당신은 어떤 모습이고 싶나요?</label>
+                        <label>3. [Goal] 당신은 어떤 모습이고 싶나요?</label>
                         <p className="hint">예: "실리콘밸리 개발자", "나만의 서비스를 운영하는 창업가", "워라밸을 즐기는 시니어"</p>
                         <textarea
                             value={essays.goal}

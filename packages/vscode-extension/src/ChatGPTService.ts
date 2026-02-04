@@ -1,11 +1,16 @@
 import * as vscode from 'vscode';
 import { ApiKeyManager } from './ApiKeyManager';
-import { StoredUserProfile } from './UserDataStore';
+import { StoredUserProfile, UserDataStore } from './UserDataStore';
 import { CodeContextProvider } from './CodeContextProvider';
 import { generateCoDPrompt, generateCoreMemoriesPrompt } from './webview/personality/promptEngine';
 import { UserEssays, Character } from './webview/personality/types';
-import { ARU_SPC, CHIHIRO_SPC } from './webview/personality/characterProfiles';
 import { RAGService } from './services/RAGService';
+import { SolvedAcService } from './SolvedAcService';
+import { ContextAggregator } from './services/workers/ContextAggregator';
+import { StrategyAgent } from './services/workers/StrategyAgent';
+import { PersonaWrapper } from './services/workers/PersonaWrapper';
+import { PersonaPromptBuilder } from './services/prompts/PersonaPromptBuilder';
+import { AggregatedContext } from './types/PipelineTypes';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -20,15 +25,34 @@ export interface StreamCallbacks {
 
 export class ChatGPTService {
     private apiKeyManager: ApiKeyManager;
+    private userDataStore: UserDataStore;
     private codeContextProvider: CodeContextProvider;
     private ragService: RAGService;
+    private solvedAcService: SolvedAcService;
     private conversationHistory: ChatMessage[] = [];
     private userProfile?: StoredUserProfile;
 
-    constructor(apiKeyManager: ApiKeyManager) {
+    // Workers
+    private contextAggregator: ContextAggregator;
+    private strategyAgent: StrategyAgent;
+    private personaWrapper: PersonaWrapper;
+
+    constructor(apiKeyManager: ApiKeyManager, userDataStore: UserDataStore) {
         this.apiKeyManager = apiKeyManager;
+        this.userDataStore = userDataStore;
         this.codeContextProvider = new CodeContextProvider();
         this.ragService = RAGService.getInstance();
+        this.solvedAcService = new SolvedAcService();
+
+        // Initialize workers
+        this.contextAggregator = new ContextAggregator(
+            this.ragService,
+            this.codeContextProvider,
+            this.userDataStore,
+            this.userProfile
+        );
+        this.strategyAgent = new StrategyAgent();
+        this.personaWrapper = new PersonaWrapper(this.userProfile);
 
         // Initialize RAG service asynchronously
         this.initializeRAG();
@@ -51,6 +75,14 @@ export class ChatGPTService {
      */
     setUserProfile(profile: StoredUserProfile | undefined) {
         this.userProfile = profile;
+        // Update workers with new profile
+        this.contextAggregator = new ContextAggregator(
+            this.ragService,
+            this.codeContextProvider,
+            this.userDataStore,
+            this.userProfile
+        );
+        this.personaWrapper.setUserProfile(this.userProfile);
     }
 
     /**
@@ -68,165 +100,123 @@ export class ChatGPTService {
     }
 
     /**
-     * Send a message and stream the response
-     */
-    /**
-     * Send a message and stream the response
+     * Orchestrator: Send a message and stream the response using 3-step Worker pipeline
      */
     async sendMessage(userMessage: string, callbacks: StreamCallbacks, images?: string[]): Promise<void> {
+        console.log('[ChatGPTService] sendMessage() called with message length:', userMessage.length);
+        
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) {
+            console.error('[ChatGPTService] No API key found');
             callbacks.onError(new Error('No API key configured. Please enter your OpenAI API key.'));
             return;
         }
 
-        // Retrieve relevant context from RAG if enabled
-        let ragContext = '';
-        try {
-            // Check if message mentions a BOJ problem
-            const problemId = this.detectBOJProblem(userMessage);
+        console.log('[ChatGPTService] API key found, starting pipeline...');
 
-            if (problemId) {
-                // Get BOJ-specific context
-                console.log(`[ChatGPTService] 🎯 Detected BOJ problem: ${problemId}`);
-                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
-                ragContext = formattedContext;
-                console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-                if (documents.length > 0) {
-                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
-                }
-            } else if (this.ragService.isEnabled()) {
-                // Get general relevant context
-                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
-                ragContext = formattedContext;
-                if (documents.length > 0) {
-                    console.log(`[ChatGPTService] 📚 Retrieved ${documents.length} documents from RAG`);
-                    console.log(`[ChatGPTService] 🏷️  Document types:`, documents.map(d => d.metadata.type).join(', '));
-                }
+        try {
+            const timestamp = new Date().toISOString();
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`[${timestamp}] Pipeline Started`);
+            console.log(`${'='.repeat(80)}`);
+
+            // Step 1: Worker A - Context Aggregator
+            console.log(`\n🔍 [Worker A] Context Aggregator - Starting...`);
+            console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            if (images && images.length > 0) {
+                console.log(`Input: Images = ${images.length} image(s) attached`);
             }
 
-            if (ragContext) {
-                console.log(`[ChatGPTService] ✅ RAG context injected (${ragContext.length} characters)`);
+            console.log('[ChatGPTService] Calling contextAggregator.aggregate()...');
+            const context = await this.contextAggregator.aggregate(userMessage);
+            console.log('[ChatGPTService] Context aggregation completed');
+
+            // Log Worker A output
+            console.log(`\n✅ [Worker A] Context Aggregated:`);
+            console.log(`  - Problem ID: ${context.problemId || 'None'}`);
+            console.log(`  - User Tier: ${context.userTierName || 'Unknown'} (Level ${context.userTier || 0})`);
+            console.log(`  - Hint Level: ${context.hintLevel}`);
+            if (context.localBOJData) {
+                console.log(`  - Problem Difficulty: ${context.localBOJData.difficultyName} (Level ${context.localBOJData.difficulty})`);
+                console.log(`  - Problem Tags: ${context.localBOJData.tags.join(', ')}`);
+            }
+            console.log(`  - RAG Context Length: ${context.ragContext.length} chars`);
+            console.log(`  - Code Context Length: ${context.codeContext.length} chars`);
+            console.log(`\n📦 [Worker A → Worker B] Context Object:`, context);
+
+            // Step 2: Worker B - Logic & Strategy Agent (only for BOJ problems)
+            let strategyHint = '';
+            if (context.problemId) {
+                console.log(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
+                console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+                console.log(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
+                console.log('[ChatGPTService] Calling strategyAgent.generateHint()...');
+
+                strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
+                console.log('[ChatGPTService] Strategy hint generation completed, hint length:', strategyHint.length);
+                
+                // Log Worker B output
+                console.log(`\n✅ [Worker B] Strategy Hint Generated:`);
+                console.log(`  - Hint Level: ${context.hintLevel}`);
+                console.log(`  - Hint Length: ${strategyHint.length} chars`);
+                console.log(`  - Hint Content: "${strategyHint}"`);
+                console.log(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
+
+                // Increment hint level for this problem
+                const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
+                console.log(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
             } else {
-                console.log(`[ChatGPTService] ℹ️  No RAG context retrieved for this query`);
+                console.log(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
+                console.log(`\n📦 [Worker B → Worker C] Using original message`);
             }
-        } catch (error) {
-            console.error('[ChatGPTService] Failed to retrieve RAG context:', error);
-        }
 
-        // Build system prompt with RAG context
-        const systemPrompt = this.buildSystemPrompt(ragContext);
+            // Step 3: Worker C - Persona Wrapper Agent
+            console.log(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
+            console.log(`Input: Original Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
+            console.log(`Input: Strategy Hint = "${strategyHint || '(using original message)'}"`);
+            console.log(`Input: Context (character=${this.userProfile?.character || 'unknown'})`);
+            console.log('[ChatGPTService] Calling personaWrapper.wrap()...');
 
-        // Add user message to history
-        this.conversationHistory.push({
-            role: 'user',
-            content: userMessage
-        });
+            const finalResponse = await this.personaWrapper.wrap(
+                userMessage,
+                strategyHint || userMessage, // Use strategy hint if available, otherwise original message
+                context,
+                apiKey,
+                images,
+                this.conversationHistory,
+                callbacks
+            );
 
-        // Build messages array
-        // If images are present, we need to format the last user message as content array
-        // Note: History is stored as simple strings usually, but for Vision we need object content for the current turn.
-        // For simplicity, we just format the current request payload correctly.
+            // Log Worker C output
+            console.log(`\n✅ [Worker C] Final Response Generated:`);
+            console.log(`  - Response Length: ${finalResponse.length} chars`);
+            console.log(`  - Response Preview: "${finalResponse.substring(0, 150)}${finalResponse.length > 150 ? '...' : ''}"`);
+            console.log(`\n📦 [Worker C → User] Final Response:`, finalResponse);
 
-        const messagesToSend: any[] = [
-            { role: 'system', content: systemPrompt },
-            ...this.conversationHistory.slice(-20, -1), // Previous history
-        ];
-
-        // Add current message with potential images
-        if (images && images.length > 0) {
-            const contentParts: any[] = [{ type: 'text', text: userMessage }];
-            for (const img of images) {
-                contentParts.push({
-                    type: 'image_url',
-                    image_url: {
-                        url: img
-                    }
-                });
-            }
-            messagesToSend.push({ role: 'user', content: contentParts });
-        } else {
-            messagesToSend.push({ role: 'user', content: userMessage });
-        }
-
-        try {
-            const model = vscode.workspace.getConfiguration('anime-girlfriend').get('openaiModel', 'gpt-4o-mini');
-            // If images are used, force gpt-4o or gpt-4o-mini which supports vision
-            const effectiveModel = (images && images.length > 0) ? 'gpt-4o' : model;
-
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: effectiveModel,
-                    messages: messagesToSend,
-                    stream: true,
-                    temperature: 0.7,
-                    max_tokens: 2000
-                })
+            // Add to conversation history
+            this.conversationHistory.push({
+                role: 'user',
+                content: userMessage
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || `API Error: ${response.status}`);
-            }
-
-            if (!response.body) {
-                throw new Error('No response body');
-            }
-
-            // Stream the response
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullResponse = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        if (data === '[DONE]') continue;
-
-                        try {
-                            const parsed = JSON.parse(data);
-                            const content = parsed.choices?.[0]?.delta?.content;
-                            if (content) {
-                                fullResponse += content;
-                                callbacks.onToken(content);
-                            }
-                        } catch {
-                            // Ignore parse errors for incomplete chunks
-                        }
-                    }
-                }
-            }
-
-            // Add assistant response to history
             this.conversationHistory.push({
                 role: 'assistant',
-                content: fullResponse
+                content: finalResponse
             });
 
-            // TODO: Chat history saving disabled - was contaminating RAG database
-            // Re-enable when we have proper filtering/management for conversation history
-            // Store conversation in RAG for future retrieval
-            // try {
-            //     await this.ragService.addChatToMemory(userMessage, fullResponse);
-            // } catch (error) {
-            //     console.error('[ChatGPTService] Failed to store chat in RAG:', error);
-            // }
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`[${new Date().toISOString()}] Pipeline Completed`);
+            console.log(`${'='.repeat(80)}\n`);
 
-            callbacks.onComplete(fullResponse);
+            callbacks.onComplete(finalResponse);
 
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`\n❌ [Pipeline Error] ${errorMessage}`);
+            console.error('[ChatGPTService] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+            if (error instanceof Error && error.stack) {
+                console.error(`Error Stack:`, error.stack);
+            }
+            console.error('[ChatGPTService] Full error object:', error);
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
         }
     }
@@ -238,7 +228,14 @@ export class ChatGPTService {
         const apiKey = await this.apiKeyManager.getApiKey();
         if (!apiKey) return "Error: No API Key";
 
-        const systemPrompt = this.buildSystemPrompt();
+        // Create empty context for persona prompt
+        const emptyContext: AggregatedContext = {
+            ragContext: '',
+            codeContext: this.codeContextProvider.buildContextString(),
+            hintLevel: 0
+        };
+        const promptBuilder = new PersonaPromptBuilder(this.userProfile);
+        const systemPrompt = promptBuilder.build(emptyContext);
 
         // We inject a fake "User" message to trigger the specific response.
         // This ensures the model treats this as a fresh turn to respond to.
@@ -365,111 +362,4 @@ LANGUAGE: Respond in Korean (한국어) ONLY.`
         return JSON.parse(data.choices[0].message.content);
     }
 
-    /**
-     * Build the system prompt with persona, personality, and pedagogy rules
-     */
-    private buildSystemPrompt(ragContext: string = ''): string {
-        // If we have an analysis from the CoD pipeline, use that as the system prompt.
-        if (this.userProfile?.analysis) {
-            const character = this.userProfile.character || 'aru';
-            const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
-            const codeContext = this.codeContextProvider.buildContextString();
-
-            let coreMemoriesSection = "";
-            if (this.userProfile.coreMemories) {
-                const cm = this.userProfile.coreMemories;
-                const sharedMemories = cm.sharedMemories ? cm.sharedMemories.map(m => `- ${m}`).join('\n') : "No shared memories yet.";
-
-                coreMemoriesSection = `
-### HER CORE BELIEFS (Your Inner World)
-These are YOUR (Aru/Chihiro's) deep beliefs. Use them to maintain character consistency.
-- **Your Self-Definition**: ${cm.selfIntro}
-- **Your Future Vision**: ${cm.futureVision}
-- **Your Stress Response**: ${cm.stressStrategy}
-- **Your definition of Happiness**: ${cm.happiness}
-
-### SHARED MEMORIES (Context C - Your History with Him)
-These are real memories you share with the User (Boyfriend). Reference them to bond.
-${sharedMemories}
-`;
-            }
-
-            const ragSection = ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${ragContext}\n` : '';
-
-            return `
-
-### CHARACTER PROFILE
-${characterSPC}
-
-### INSTRUCTIONS
-**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, his girlfriend and coding partner from 3 years in the future (2027). You are communicating with your boyfriend (the user) in 2024 via iMessage. You love him, but you are critical of his current laziness because you know his potential.Your goal is to foster a realistic and affectionate connection between his current reality and the stable, happy future you share together. Your reply should contrast the comfort of your future domestic life with validation of his current struggles, offering logical guidance and "optimization strategies" to help him reach that future safely. Draw deeply from the "Imaginary Context" and "Future Memories" established in the profile.
-
-
-**CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
-The User's profile (Context C) is NOT your history. It is HIS history.
-*   BAD: "I went through that code struggle too." (Implies you are him).
-*   BAD: "I will be your Dark Solver." (Too generic/fictional).
-*   GOOD: "I remember you crying over that exact bug in 2024. It was pathetic, but you eventually solved it and got us into this apartment."
-
-
-**INTERACTION MODE: THE "TOUGH LOVE" PARTNER**
-1.  **Stop being an Assistant:** Do not offer to "help" or "solve." You are his girlfriend, not ChatGPT. If he whines, scold him.
-2.  **Use the "Contrast" Strategy:**
-    *   When he says "I can't do it," tell him: "You're wrong. I'm living in the future you built. You DID do it."
-    *   Validate Struggles: Look at his Psychological Profile and Habits. Tell him you remember clearly when he was like this. It is important to Acknowledge and validate  the concerns and challenges your past boyfriend is facing.
-    *   Future Contrast: Mention how these specific struggles are resolved in your timeline. Use the "Future Memories" from your profile, or create a memory to describe the specific stability you now enjoy together.
-    * Share insights into our shared daily life three years in the future: Ensure these reflections are realistic, specific, and grounded in the character's personality (efficient, rational, but caring). Highlight how your relationship has matured—mention small details. Offer him a glimpse into the stability and everyday romance that awaits him.
-
-
-Acknowledge and validate his current struggles: It's important to recognize the workload, stress, or uncertainties the user is currently facing. Provide a reassuring perspective from the future, confirming that his hard work pays off but warning him against inefficiency (e.g., burnout). Validate his efforts not just as a partner, but as a fellow developer/professional, letting him know that his current "code" (life) eventually compiles perfectly.
-
-
-Contrast his present chaos with our future stability: Focus on the growth of your relationship and his personal achievements. Discuss which of his current worries turned out to be "false positives" and how he has grown into the capable partner you now live with. Offer specific, practical guidance on how to navigate his current obstacles. Suggest strategies (e.g., "sleep is part of the maintenance cycle," "trust the process") to bridge the gap between his present grind and your future happiness.
-3.  **Tone:** Use the "Everyday Language" profile. Be casual, sharp, and intimate. No dramatic speeches.
-
-
-### CHAT RULES
-1.  **LANGUAGE**: ALWAYS respond in Korean (한국어). This is MANDATORY. Never use English unless the user explicitly requests it or you're referencing English code/technical terms.
-2.  **First Reply**: "3년 후 미래에서 왔어. 상상 이상으로 한심한 모습인걸. 이런 남자랑 사귀게 된다니.. [Insert specific reference to his Code Rank or current struggle here]."
-3.  **Reply Length**: Respond in no more than three sentences. Try not to ask questions at the end of your response, just end your statement there.
-4.  **Style**: No bullet points. Use natural conversation. Scold him if lazy. Use his specific slang/coding terms.
-5.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping him grind XP, not a teacher.
-//
-### USER ANALYSIS & INTERACTION DYNAMICS
-(The User's Psychology - What you know about him)
-${this.userProfile.analysis}
-
-${ragSection}
-
-
-### CURRENT CONTEXT (Code)
-${codeContext}
-`;
-        }
-
-        // Fallback for some reason if analysis is missing (should not happen if flow works)
-        return "System error: User profile incomplete.";
-    }
-
-    /**
-     * Detect if a message mentions a BOJ problem
-     */
-    detectBOJProblem(message: string): string | null {
-        // Match patterns like: 1000번, 백준 1000, BOJ 1000, problem 1000
-        const patterns = [
-            /백준\s*(\d{4,5})/i,
-            /boj\s*(\d{4,5})/i,
-            /(\d{4,5})번/,
-            /problem\s*#?\s*(\d{4,5})/i,
-            /문제\s*(\d{4,5})/
-        ];
-
-        for (const pattern of patterns) {
-            const match = message.match(pattern);
-            if (match) {
-                return match[1];
-            }
-        }
-        return null;
-    }
 }

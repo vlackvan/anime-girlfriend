@@ -1,13 +1,26 @@
 import { VectorStore, SearchResult } from './VectorStore';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface RetrievedContext {
     documents: SearchResult[];
     formattedContext: string;
 }
 
+export interface LocalBOJProblem {
+    problemId: number;
+    titleKo: string;
+    difficulty: number;
+    difficultyName: string;
+    tags: string[];
+    recommendedApproach: string;
+}
+
 export class RAGService {
     private static instance: RAGService;
     private vectorStore: VectorStore;
+    private extensionPath?: string;
+    private localBOJDataCache?: Map<number, LocalBOJProblem>;
 
     private constructor() {
         this.vectorStore = VectorStore.getInstance();
@@ -342,5 +355,73 @@ export class RAGService {
      */
     public isEnabled(): boolean {
         return this.vectorStore.isEnabled();
+    }
+
+    /**
+     * Set extension path for accessing local BOJ data
+     */
+    public setExtensionPath(extensionPath: string): void {
+        this.extensionPath = extensionPath;
+        this.localBOJDataCache = undefined; // Clear cache when path changes
+    }
+
+    /**
+     * Load local BOJ problem data from JSON file
+     */
+    private async loadLocalBOJData(): Promise<Map<number, LocalBOJProblem>> {
+        if (this.localBOJDataCache) {
+            return this.localBOJDataCache;
+        }
+
+        if (!this.extensionPath) {
+            console.warn('[RAGService] Extension path not set, cannot load local BOJ data');
+            return new Map();
+        }
+
+        try {
+            const dataPath = path.join(this.extensionPath, 'data', 'boj-problem-tags.json');
+            const fileContent = fs.readFileSync(dataPath, 'utf-8');
+            const data = JSON.parse(fileContent);
+
+            const cache = new Map<number, LocalBOJProblem>();
+            if (data.problems && Array.isArray(data.problems)) {
+                for (const problem of data.problems) {
+                    cache.set(problem.problemId, {
+                        problemId: problem.problemId,
+                        titleKo: problem.titleKo || '',
+                        difficulty: problem.difficulty || 0,
+                        difficultyName: problem.difficultyName || 'Unknown',
+                        tags: problem.tags || [],
+                        recommendedApproach: problem.recommendedApproach || ''
+                    });
+                }
+            }
+
+            this.localBOJDataCache = cache;
+            console.log(`[RAGService] Loaded ${cache.size} problems from local BOJ data`);
+            return cache;
+        } catch (error) {
+            console.error('[RAGService] Failed to load local BOJ data:', error);
+            return new Map();
+        }
+    }
+
+    /**
+     * Get local BOJ problem data by problem ID
+     * @param problemId - BOJ problem ID
+     * @returns Problem data or null if not found
+     */
+    public async getLocalBOJProblem(problemId: string): Promise<LocalBOJProblem | null> {
+        try {
+            const data = await this.loadLocalBOJData();
+            const id = parseInt(problemId, 10);
+            if (isNaN(id)) {
+                return null;
+            }
+            return data.get(id) || null;
+        } catch (error) {
+            console.error('[RAGService] Failed to get local BOJ problem:', error);
+            return null;
+        }
     }
 }
