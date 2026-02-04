@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { SolvedAcStats, SolvedAcManualInput } from './SolvedAcService';
+import { CharacterId } from './characters';
 
 // Demographics information
 export interface Demographics {
@@ -13,7 +14,7 @@ import { CoreMemories } from './webview/personality/types';
 
 // Stored user profile structure
 export interface StoredUserProfile {
-    character: 'aru' | 'chihiro';
+    character: CharacterId;
     demographics?: Demographics;
     essays: {
         routine: string;

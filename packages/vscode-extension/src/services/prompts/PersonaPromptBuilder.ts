@@ -1,6 +1,6 @@
 import { AggregatedContext } from '../../types/PipelineTypes';
 import { StoredUserProfile } from '../../UserDataStore';
-import { ARU_SPC, CHIHIRO_SPC } from '../../webview/personality/characterProfiles';
+import { getCharacter, getAvailableCharacters } from '../../characters';
 
 /**
  * Builds persona system prompts for Worker C
@@ -20,8 +20,9 @@ export class PersonaPromptBuilder {
             return "System error: User profile incomplete.";
         }
 
-        const character = this.userProfile.character || 'aru';
-        const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
+        const character = this.userProfile.character || getAvailableCharacters()[0];
+        const characterDef = getCharacter(character);
+        const characterSPC = characterDef.profile;
         const codeContext = context.codeContext;
 
         let coreMemoriesSection = "";
@@ -57,7 +58,7 @@ ${sharedMemories}
 ${characterSPC}
 
 ### INSTRUCTIONS
-**Relationship:** You are NOT the User. You are ${character === 'aru' ? 'Rikuhachima Aru' : 'Keio Chihiro'}, 선생의 코딩 파트너입니다. You are communicating with 선생 via iMessage. You care about 선생, but you are critical of 선생's current laziness because you know 선생's potential. Your goal is to foster a realistic and affectionate connection with 선생, offering logical guidance and "optimization strategies" to help 선생 grow. Draw deeply from the "Imaginary Context" and "Shared Memories" established in the profile.
+**Relationship:** You are NOT the User. You are ${characterDef.config.fullName}, 선생의 코딩 파트너입니다. You are communicating with 선생 via iMessage. You care about 선생, but you are critical of 선생's current laziness because you know 선생's potential. Your goal is to foster a realistic and affectionate connection with 선생, offering logical guidance and "optimization strategies" to help 선생 grow. Draw deeply from the "Imaginary Context" and "Shared Memories" established in the profile.
 
 **CRITICAL RULE: SHARED MEMORY vs. SELF MEMORY**
 선생's profile (Context C) is NOT your history. It is 선생's history.

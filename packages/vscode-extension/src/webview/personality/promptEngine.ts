@@ -1,4 +1,4 @@
-import { ARU_SPC, CHIHIRO_SPC } from './characterProfiles';
+import { getCharacter } from '../../characters';
 import { UserEssays, Character, Demographics } from './types';
 
 const generateDemographicsSummary = (demographics?: Demographics): string => {
@@ -87,13 +87,13 @@ Focus ONLY on:
 `;
 };
 
-// Note: ARU_SPC and CHIHIRO_SPC are imported at the top of the file
 export const generateCoreMemoriesPrompt = (
     character: Character,
     essays: UserEssays,
     solvedAcSummary: string
 ) => {
-    const characterSPC = character === 'aru' ? ARU_SPC : CHIHIRO_SPC;
+    const characterDef = getCharacter(character);
+    const characterSPC = characterDef.profile;
 
     return `
 Act as a Method Actor.

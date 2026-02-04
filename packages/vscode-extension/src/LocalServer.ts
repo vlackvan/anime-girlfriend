@@ -1,4 +1,5 @@
 import * as http from 'http';
+import { CharacterId, getAvailableCharacters } from './characters';
 
 export interface BOJJudgeResult {
     problemId: string;
@@ -13,7 +14,7 @@ export interface BOJJudgeResult {
 }
 
 type BOJCallback = (data: BOJJudgeResult) => void;
-type GetCharacterCallback = () => 'aru' | 'chihiro' | undefined;
+type GetCharacterCallback = () => CharacterId | undefined;
 
 export class LocalServer {
     private server: http.Server;
@@ -55,7 +56,7 @@ export class LocalServer {
                         res.end(JSON.stringify({
                             success: true,
                             message: 'Received!',
-                            character: selectedCharacter || 'aru' // Default to aru if no character selected
+                            character: selectedCharacter || getAvailableCharacters()[0] // Default to first character if no character selected
                         }));
                     } catch (error) {
                         console.error('[LocalServer] Parse error:', error);

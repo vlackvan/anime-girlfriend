@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Character, UserProfile } from '../personality/types';
 import { BongoCat } from './BongoCat';
+import { getCharacter } from '../../characters';
 
 interface Message {
     id: string;
@@ -16,6 +17,9 @@ interface ChatProps {
 }
 
 export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 0 }) => {
+    // Get character definition
+    const characterDef = getCharacter(character);
+    
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
     const [isBongoCatOpen, setIsBongoCatOpen] = useState(true);
@@ -226,11 +230,11 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     <div className="chat-title">🍑MomoTalk</div>
                     <div className="chat-header-info">
                         <img
-                            src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                            src={window.assetBaseUri?.[character] || ''}
                             alt={character}
                             className="avatar"
                         />
-                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                        <span className="name">{characterDef.config.name}</span>
                         <div className="status-indicator">
                             <span className="status-dot"></span>
                             <span className="status-text">온라인</span>
@@ -244,12 +248,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                             {msg.author === 'bot' && (
                                 <>
                                     <img
-                                        src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                        src={window.assetBaseUri?.[character] || ''}
                                         alt={character}
                                         className="avatar"
                                     />
                                     <div className="message-content">
-                                        <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                        <span className="name">{characterDef.config.name}</span>
                                         <div className={`bubble ${msg.isStreaming ? 'streaming' : ''}`} style={{ whiteSpace: 'pre-wrap' }}>
                                             {msg.content || (msg.isStreaming && '...')}
                                         </div>
@@ -266,12 +270,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     {isLoading && !streamingMessageId && (
                         <div className="message bot">
                             <img
-                                src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
+                                src={window.assetBaseUri?.[character] || ''}
                                 alt={character}
                                 className="avatar"
                             />
                             <div className="message-content">
-                                <span className="name">{character === 'aru' ? 'Aru' : 'Chihiro'}</span>
+                                <span className="name">{characterDef.config.name}</span>
                                 <div className="bubble typing">
                                     <span>.</span><span>.</span><span>.</span>
                                 </div>
