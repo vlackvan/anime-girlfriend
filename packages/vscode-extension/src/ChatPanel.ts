@@ -96,15 +96,23 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     break;
 
                 case 'getCurrentProblem':
-                    // Send current working problem to frontend
+                    // Send current working problem and its hint level to frontend
+                    const currentProblemId = this.userDataStore.getCurrentProblem();
                     this.postMessage({
                         type: 'currentProblem',
-                        problemId: this.userDataStore.getCurrentProblem()
+                        problemId: currentProblemId
                     });
+                    // Also send the hint level for this problem
+                    if (currentProblemId) {
+                        this.postMessage({
+                            type: 'hintLevel',
+                            level: this.userDataStore.getHintLevel(currentProblemId)
+                        });
+                    }
                     break;
 
                 case 'setCurrentProblem':
-                    // Set current working problem
+                    // Set current working problem and send its hint level
                     await this.userDataStore.setCurrentProblem(message.problemId);
                     // Check if problem is new and generate solution if needed
                     if (message.problemId) {
@@ -117,6 +125,11 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     if (message.problemId) {
                         await this.handleFetchProblemDescription(message.problemId);
                     }
+                    // Send hint level for the selected problem
+                    this.postMessage({
+                        type: 'hintLevel',
+                        level: this.userDataStore.getHintLevel(message.problemId)
+                    });
                     break;
 
                 case 'getRecommendedProblems':
