@@ -55,6 +55,14 @@ export class StrategyAgent {
         let problemDescriptionSection = '';
         if (context.problemDescription) {
             const desc = context.problemDescription;
+            console.log(`  [Worker B] ✅ Problem description available in context`);
+            console.log(`  [Worker B] 📊 Problem Description Data:`);
+            console.log(`  [Worker B]   - Description: ${desc.problemDescription.length} chars`);
+            console.log(`  [Worker B]   - Input: ${desc.problemInput.length} chars`);
+            console.log(`  [Worker B]   - Output: ${desc.problemOutput.length} chars`);
+            console.log(`  [Worker B] 📝 Full Problem Description (will be included in prompt):`);
+            console.log(`  [Worker B] ${desc.problemDescription.substring(0, 500)}${desc.problemDescription.length > 500 ? '...' : ''}`);
+            
             problemDescriptionSection = `
 ### PROBLEM DESCRIPTION
 ${desc.problemDescription}
@@ -65,6 +73,12 @@ ${desc.problemInput}
 ### OUTPUT FORMAT
 ${desc.problemOutput}
 `;
+            console.log(`  [Worker B] ✅ Problem description section added to prompt`);
+            console.log(`  [Worker B]   - Section length: ${problemDescriptionSection.length} chars`);
+            console.log(`  [Worker B]   - This will be included in the system prompt for hint generation`);
+        } else {
+            console.log(`  [Worker B] ⚠️ Problem description NOT available in context`);
+            console.log(`  [Worker B] ⚠️ StrategyAgent will generate hints WITHOUT problem description`);
         }
 
         const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
@@ -106,6 +120,10 @@ HINT LEVEL RESTRICTIONS (ENFORCE STRICTLY):
 IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code blocks, markdown formatting, or detailed explanations at levels 0-2. Just the hint content itself, in plain Korean text.`;
 
         console.log(`  [Worker B] System Prompt Length: ${systemPrompt.length} chars`);
+        console.log(`  [Worker B] 📋 System Prompt includes problem description: ${problemDescriptionSection.length > 0 ? '✅ YES' : '❌ NO'}`);
+        if (problemDescriptionSection.length > 0) {
+            console.log(`  [Worker B] 📋 Problem description section length in prompt: ${problemDescriptionSection.length} chars`);
+        }
         console.log(`  [Worker B] Calling OpenAI API (gpt-4o)...`);
 
         try {

@@ -65,14 +65,20 @@ export class ContextAggregator {
                 }
 
                 // Fetch problem description from Baekjoon
-                console.log(`  [Worker A] Fetching problem description for problem ${problemId}...`);
+                console.log(`  [Worker A] 🔍 Fetching problem description for problem ${problemId}...`);
                 try {
                     const description = await fetchProblemDescription(problemId);
                     if (description) {
                         problemDescription = description;
-                        console.log(`  [Worker A] Problem description fetched successfully`);
+                        console.log(`  [Worker A] ✅ Problem description fetched successfully`);
+                        console.log(`  [Worker A] 📊 Fetched Data:`);
+                        console.log(`  [Worker A]   - Description: ${description.problemDescription.length} chars`);
+                        console.log(`  [Worker A]   - Input: ${description.problemInput.length} chars`);
+                        console.log(`  [Worker A]   - Output: ${description.problemOutput.length} chars`);
+                        console.log(`  [Worker A] 📝 Full Description Preview:`);
+                        console.log(`  [Worker A] ${description.problemDescription.substring(0, 400)}${description.problemDescription.length > 400 ? '...' : ''}`);
                     } else {
-                        console.log(`  [Worker A] Failed to fetch problem description`);
+                        console.log(`  [Worker A] ❌ Failed to fetch problem description`);
                     }
                 } catch (error) {
                     console.error(`  [Worker A] ❌ Failed to fetch problem description:`, error);
@@ -134,6 +140,17 @@ export class ContextAggregator {
             solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined,
             problemDescription
         };
+
+        // Log context summary
+        console.log(`  [Worker A] Context Summary:`);
+        console.log(`    - Problem ID: ${problemId || 'None'}`);
+        console.log(`    - Problem Description: ${problemDescription ? '✅ Available' : '❌ Not available'}`);
+        if (problemDescription) {
+            console.log(`    - Description length: ${problemDescription.problemDescription.length} chars`);
+        }
+        console.log(`    - Local BOJ Data: ${localBOJData ? '✅ Available' : '❌ Not available'}`);
+        console.log(`    - Code Context: ${codeContext.length} chars`);
+        console.log(`    - Hint Level: ${hintLevel}`);
 
         return context;
     }

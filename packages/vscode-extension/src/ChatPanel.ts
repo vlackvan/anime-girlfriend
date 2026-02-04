@@ -293,18 +293,28 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
     private async handleFetchProblemDescription(problemId: string) {
         try {
-            console.log(`[ChatPanel] Fetching problem description for problem ${problemId}...`);
+            console.log(`[ChatPanel] 🔍 Fetching problem description for problem ${problemId}...`);
+            const startTime = Date.now();
             const description = await fetchProblemDescription(problemId);
+            const fetchTime = Date.now() - startTime;
             
             if (description) {
-                console.log(`[ChatPanel] Problem description fetched successfully for problem ${problemId}`);
+                console.log(`[ChatPanel] ✅ Problem description fetched successfully for problem ${problemId} (${fetchTime}ms)`);
+                console.log(`[ChatPanel] Description length: ${description.problemDescription.length} chars`);
+                console.log(`[ChatPanel] Input length: ${description.problemInput.length} chars`);
+                console.log(`[ChatPanel] Output length: ${description.problemOutput.length} chars`);
+                console.log(`[ChatPanel] Description preview: ${description.problemDescription.substring(0, 200)}...`);
                 // Problem description is now available in context when needed
                 // No need to send to UI as per user's request (current UI method maintained)
             } else {
-                console.log(`[ChatPanel] Failed to fetch problem description for problem ${problemId}`);
+                console.log(`[ChatPanel] ❌ Failed to fetch problem description for problem ${problemId}`);
             }
         } catch (error) {
-            console.error(`[ChatPanel] Error fetching problem description for problem ${problemId}:`, error);
+            console.error(`[ChatPanel] ❌ Error fetching problem description for problem ${problemId}:`, error);
+            if (error instanceof Error) {
+                console.error(`[ChatPanel] Error message: ${error.message}`);
+                console.error(`[ChatPanel] Error stack: ${error.stack}`);
+            }
         }
     }
 

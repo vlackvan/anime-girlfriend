@@ -70,19 +70,26 @@ function unescapeHtml(html: string): string {
  */
 function parseProblemDescription(html: string, problemId: string): BaekjoonProblemDescription | null {
     try {
+        console.log(`[BaekjoonProblemService] Parsing HTML for problem ${problemId}...`);
+        
         // Extract problem description
         const problemDescription = extractElementContent(html, 'problem_description');
+        console.log(`[BaekjoonProblemService] Extracted problem_description: ${problemDescription.length} chars`);
         
         // Extract problem input
         const problemInput = extractElementContent(html, 'problem_input') || 'Empty';
+        console.log(`[BaekjoonProblemService] Extracted problem_input: ${problemInput.length} chars`);
         
         // Extract problem output
         const problemOutput = extractElementContent(html, 'problem_output') || 'Empty';
+        console.log(`[BaekjoonProblemService] Extracted problem_output: ${problemOutput.length} chars`);
 
         if (!problemDescription) {
+            console.error(`[BaekjoonProblemService] ❌ Problem description is empty for problem ${problemId}`);
             return null;
         }
 
+        console.log(`[BaekjoonProblemService] ✅ Successfully parsed all components for problem ${problemId}`);
         return {
             problemId,
             problemDescription,
@@ -90,7 +97,7 @@ function parseProblemDescription(html: string, problemId: string): BaekjoonProbl
             problemOutput
         };
     } catch (error) {
-        console.error('[BaekjoonProblemService] Failed to parse problem description:', error);
+        console.error('[BaekjoonProblemService] ❌ Failed to parse problem description:', error);
         return null;
     }
 }
@@ -115,12 +122,27 @@ export async function fetchProblemDescription(problemId: string): Promise<Baekjo
         }
 
         const html = await response.text();
+        console.log(`[BaekjoonProblemService] HTML received, length: ${html.length} chars`);
+        
         const parsed = parseProblemDescription(html, problemId);
 
         if (parsed) {
-            console.log(`[BaekjoonProblemService] Successfully parsed problem ${problemId}`);
+            console.log(`[BaekjoonProblemService] ✅ Successfully parsed problem ${problemId}`);
+            console.log(`[BaekjoonProblemService] 📊 Parsed Data Summary:`);
+            console.log(`[BaekjoonProblemService]   - Problem Description: ${parsed.problemDescription.length} chars`);
+            console.log(`[BaekjoonProblemService]   - Problem Input: ${parsed.problemInput.length} chars`);
+            console.log(`[BaekjoonProblemService]   - Problem Output: ${parsed.problemOutput.length} chars`);
+            console.log(`[BaekjoonProblemService] 📝 Problem Description (first 300 chars):`);
+            console.log(`[BaekjoonProblemService] ${parsed.problemDescription.substring(0, 300)}${parsed.problemDescription.length > 300 ? '...' : ''}`);
+            console.log(`[BaekjoonProblemService] 📥 Problem Input (first 200 chars):`);
+            console.log(`[BaekjoonProblemService] ${parsed.problemInput.substring(0, 200)}${parsed.problemInput.length > 200 ? '...' : ''}`);
+            console.log(`[BaekjoonProblemService] 📤 Problem Output (first 200 chars):`);
+            console.log(`[BaekjoonProblemService] ${parsed.problemOutput.substring(0, 200)}${parsed.problemOutput.length > 200 ? '...' : ''}`);
         } else {
-            console.error(`[BaekjoonProblemService] Failed to parse problem ${problemId}`);
+            console.error(`[BaekjoonProblemService] ❌ Failed to parse problem ${problemId}`);
+            console.error(`[BaekjoonProblemService] HTML contains 'problem_description': ${html.includes('problem_description')}`);
+            console.error(`[BaekjoonProblemService] HTML contains 'problem_input': ${html.includes('problem_input')}`);
+            console.error(`[BaekjoonProblemService] HTML contains 'problem_output': ${html.includes('problem_output')}`);
         }
 
         return parsed;
