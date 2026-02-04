@@ -1,5 +1,6 @@
 import { LocalBOJProblem } from '../services/RAGService';
 import { SolvedAcStats } from '../SolvedAcService';
+import { BaekjoonProblemDescription } from '../services/BaekjoonProblemService';
 
 /**
  * Context aggregated by Worker A (Context Aggregator)
@@ -13,4 +14,5 @@ export interface AggregatedContext {
     userTierName?: string;
     hintLevel: number;
     solvedAcData?: SolvedAcStats;
+    problemDescription?: BaekjoonProblemDescription;
 }

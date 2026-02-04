@@ -5,6 +5,7 @@ import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
 import { CodingStateInfo } from './CodeContextProvider';
 import { getCharacter, getAvailableCharacters } from './characters';
+import { fetchProblemDescription } from './services/BaekjoonProblemService';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -96,6 +97,17 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'setCurrentProblem':
                     // Set current working problem
                     await this.userDataStore.setCurrentProblem(message.problemId);
+                    // Fetch problem description when problem is set
+                    if (message.problemId) {
+                        await this.handleFetchProblemDescription(message.problemId);
+                    }
+                    break;
+
+                case 'fetchProblemDescription':
+                    // Explicitly fetch problem description
+                    if (message.problemId) {
+                        await this.handleFetchProblemDescription(message.problemId);
+                    }
                     break;
 
                 case 'getRecommendedProblems':
@@ -276,6 +288,23 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 type: 'recommendedProblems',
                 data: []
             });
+        }
+    }
+
+    private async handleFetchProblemDescription(problemId: string) {
+        try {
+            console.log(`[ChatPanel] Fetching problem description for problem ${problemId}...`);
+            const description = await fetchProblemDescription(problemId);
+            
+            if (description) {
+                console.log(`[ChatPanel] Problem description fetched successfully for problem ${problemId}`);
+                // Problem description is now available in context when needed
+                // No need to send to UI as per user's request (current UI method maintained)
+            } else {
+                console.log(`[ChatPanel] Failed to fetch problem description for problem ${problemId}`);
+            }
+        } catch (error) {
+            console.error(`[ChatPanel] Error fetching problem description for problem ${problemId}:`, error);
         }
     }
 

@@ -4,6 +4,7 @@ import { CodeContextProvider } from '../../CodeContextProvider';
 import { StoredUserProfile, UserDataStore } from '../../UserDataStore';
 import { AggregatedContext } from '../../types/PipelineTypes';
 import { SolvedAcStats } from '../../SolvedAcService';
+import { fetchProblemDescription, BaekjoonProblemDescription } from '../BaekjoonProblemService';
 
 /**
  * Worker A: Context Aggregator
@@ -38,6 +39,7 @@ export class ContextAggregator {
 
         let ragContext = '';
         let localBOJData: LocalBOJProblem | undefined;
+        let problemDescription: BaekjoonProblemDescription | undefined;
 
         // Get RAG context
         try {
@@ -60,6 +62,20 @@ export class ContextAggregator {
                     console.log(`  [Worker A] Local BOJ Data: ${localBOJData.titleKo} (${localBOJData.difficultyName})`);
                 } else {
                     console.log(`  [Worker A] Local BOJ Data: Not found`);
+                }
+
+                // Fetch problem description from Baekjoon
+                console.log(`  [Worker A] Fetching problem description for problem ${problemId}...`);
+                try {
+                    const description = await fetchProblemDescription(problemId);
+                    if (description) {
+                        problemDescription = description;
+                        console.log(`  [Worker A] Problem description fetched successfully`);
+                    } else {
+                        console.log(`  [Worker A] Failed to fetch problem description`);
+                    }
+                } catch (error) {
+                    console.error(`  [Worker A] ❌ Failed to fetch problem description:`, error);
                 }
             } else if (this.ragService.isEnabled()) {
                 // RAG retrieval disabled by user request
@@ -115,7 +131,8 @@ export class ContextAggregator {
             userTier,
             userTierName,
             hintLevel,
-            solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined
+            solvedAcData: solvedAcData && 'tier' in solvedAcData ? solvedAcData : undefined,
+            problemDescription
         };
 
         return context;

@@ -51,6 +51,22 @@ export class StrategyAgent {
             'Show full solution code (last resort)'
         ];
 
+        // Build problem description section
+        let problemDescriptionSection = '';
+        if (context.problemDescription) {
+            const desc = context.problemDescription;
+            problemDescriptionSection = `
+### PROBLEM DESCRIPTION
+${desc.problemDescription}
+
+### INPUT FORMAT
+${desc.problemInput}
+
+### OUTPUT FORMAT
+${desc.problemOutput}
+`;
+        }
+
         const systemPrompt = `You are a pedagogical AI that helps students learn algorithms step by step.
 
 CRITICAL RULES:
@@ -73,6 +89,8 @@ Current Situation:
 Problem Information:
 - Tags: ${problemTags.join(', ')}
 - Recommended Approach: ${recommendedApproach}
+
+${problemDescriptionSection}
 
 ${solvedAcData ? `User Stats: ${solvedAcData.summary}` : ''}
 
