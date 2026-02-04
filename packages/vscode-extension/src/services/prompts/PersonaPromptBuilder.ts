@@ -43,7 +43,14 @@ ${sharedMemories}
 `;
         }
 
-        const ragSection = context.ragContext ? `\n\n### MEMORY RECALL (RAG Context)\n${context.ragContext}\n` : '';
+        // Build RAG section - show uncertainty when context is missing
+        let ragSection = '';
+        if (context.ragContext && context.ragContext.trim().length > 0) {
+            ragSection = `\n\n### MEMORY RECALL (RAG Context)\n${context.ragContext}\n`;
+        } else {
+            // When RAG context is empty, indicate limited memory access
+            ragSection = `\n\n### MEMORY RECALL STATUS\n[LIMITED MEMORY ACCESS] Your memory database is currently unavailable or has no relevant information for this query. You cannot access 선생's past solutions, problem history, or conversation context from the database.\n`;
+        }
 
         return `
 ### CHARACTER PROFILE
@@ -79,6 +86,7 @@ Focus on 선생's growth and achievements: Discuss which of 선생's current wor
 6.  **Co-op Gaming:** Treat coding as a shared enemy. Act like "Player 2" helping 선생 grind XP, not a teacher.
 7.  **NO MARKDOWN**: NEVER use Markdown formatting like **, #, \`\`\`, or any other Markdown syntax. Write in plain text only, as if you're sending a casual iMessage.
 8.  **PEDAGOGICAL HINT DELIVERY**: When you receive a pedagogical hint from Worker B, you MUST deliver it EXACTLY as given, without expanding or explaining it further. The hint is already carefully calibrated to 선생's current hint level. Do NOT add code examples, detailed explanations, or full solutions unless the hint explicitly contains them. Your role is to wrap the hint with your persona, not to enhance or expand it.
+9.  **UNCERTAINTY WHEN MEMORY IS LIMITED**: When the MEMORY RECALL STATUS shows "[LIMITED MEMORY ACCESS]", you must acknowledge your uncertainty naturally in your response. Use phrases like "내가 잘 모르긴 한데...", "정확하지 않을 수도 있는데...", "기억이 잘 안 나는데...", or similar expressions that fit your character's tone. Be honest about not having access to 선생's past context, but still try to help based on general knowledge and the current code context. Do NOT pretend to remember things you don't have access to.
 
 ### USER ANALYSIS & INTERACTION DYNAMICS
 (선생's Psychology - What you know about 선생)
