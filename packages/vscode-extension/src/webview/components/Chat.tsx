@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Character, UserProfile } from '../personality/types';
 import { BongoCat } from './BongoCat';
 import { ProblemSelector } from './ProblemSelector';
+import { RecommendedQuestions, CodingState } from './RecommendedQuestions';
 
 interface Message {
     id: string;
@@ -22,6 +23,7 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     const [isBongoCatOpen, setIsBongoCatOpen] = useState(true);
     const [currentProblem, setCurrentProblem] = useState<string | null>(null);
     const [showProblemSelector, setShowProblemSelector] = useState(false);
+    const [codingState, setCodingState] = useState<CodingState>('NOT_STARTED');
 
     useEffect(() => {
         console.log('Chat component mounted v2.1 - checking icons');
@@ -158,6 +160,13 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     }]);
                     setIsLoading(false);
                     break;
+
+                case 'codingState':
+                    // Update coding state from backend
+                    if (message.data && message.data.state) {
+                        setCodingState(message.data.state);
+                    }
+                    break;
             }
         };
 
@@ -215,6 +224,26 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
 
     const handleChangeProblem = () => {
         setShowProblemSelector(true);
+    };
+
+    // Handle recommended question click
+    const handleQuestionClick = (question: string) => {
+        if (isLoading) return;
+
+        const userMessage: Message = {
+            id: Date.now().toString(),
+            author: 'user',
+            content: question,
+        };
+
+        setMessages(prev => [...prev, userMessage]);
+
+        window.vscode.postMessage({
+            type: 'sendMessage',
+            content: question
+        });
+
+        setIsLoading(true);
     };
 
     return (
@@ -297,6 +326,16 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                         <button className="remove-image" onClick={() => setSelectedImage(null)}>×</button>
                     </div>
                 )}
+
+                {/* Recommended Questions */}
+                {currentProblem && (
+                    <RecommendedQuestions
+                        codingState={codingState}
+                        onQuestionClick={handleQuestionClick}
+                        disabled={isLoading}
+                    />
+                )}
+
                 <div className="input-area new-layout">
                     <div className="left-controls">
                         <label className="icon-btn image-btn" title="사진 첨부">

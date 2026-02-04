@@ -3,6 +3,7 @@ import { ApiKeyManager } from './ApiKeyManager';
 import { UserDataStore, StoredUserProfile } from './UserDataStore';
 import { ChatGPTService } from './ChatGPTService';
 import { SolvedAcService } from './SolvedAcService';
+import { CodingStateInfo } from './CodeContextProvider';
 
 export class ChatPanel implements vscode.WebviewViewProvider {
     private view?: vscode.WebviewView;
@@ -108,6 +109,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     triggerBongoCat() {
         this.postMessage({
             type: 'bongoCatStroke'
+        });
+    }
+
+    // Method to send coding state to webview
+    sendCodingState(codingState: CodingStateInfo) {
+        this.postMessage({
+            type: 'codingState',
+            data: codingState
         });
     }
 

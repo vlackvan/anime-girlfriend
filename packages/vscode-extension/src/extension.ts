@@ -7,6 +7,7 @@ import { UserDataStore } from './UserDataStore';
 import { ChatGPTService } from './ChatGPTService';
 import { RAGService } from './services/RAGService';
 import { IngestionService } from './services/IngestionService';
+import { CodeContextProvider } from './CodeContextProvider';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('[Anime Girlfriend] Extension activating...');
@@ -99,6 +100,43 @@ export async function activate(context: vscode.ExtensionContext) {
         return vscode.commands.executeCommand('default:type', ...args);
     });
     context.subscriptions.push(typeCommand);
+
+    // Initialize CodeContextProvider for coding state detection
+    const codeContextProvider = new CodeContextProvider();
+
+    // Throttle function to avoid excessive updates
+    let codingStateThrottleTimer: NodeJS.Timeout | null = null;
+    const sendCodingStateThrottled = () => {
+        if (codingStateThrottleTimer) {
+            return;
+        }
+        codingStateThrottleTimer = setTimeout(() => {
+            const codingState = codeContextProvider.getCodingState();
+            chatPanel.sendCodingState(codingState);
+            codingStateThrottleTimer = null;
+        }, 300); // 300ms throttle
+    };
+
+    // Listen for document changes and push coding state updates
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(() => {
+            sendCodingStateThrottled();
+        })
+    );
+
+    // Listen for active editor changes
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            sendCodingStateThrottled();
+        })
+    );
+
+    // Listen for diagnostics changes (compile errors)
+    context.subscriptions.push(
+        vscode.languages.onDidChangeDiagnostics(() => {
+            sendCodingStateThrottled();
+        })
+    );
 
     // Register commands
     context.subscriptions.push(

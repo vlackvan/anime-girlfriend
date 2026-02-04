@@ -41,15 +41,16 @@ export class ContextAggregator {
 
         // Get RAG context
         try {
+            // RAG retrieval disabled by user request (using direct local lookup only)
             if (problemId) {
-                console.log(`  [Worker A] Retrieving BOJ-specific context for problem ${problemId}...`);
-                const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
-                ragContext = formattedContext;
-                console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
-                if (documents.length > 0) {
-                    const docTypes = documents.map(d => d.metadata.type).join(', ');
-                    console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
-                }
+                // console.log(`  [Worker A] Retrieving BOJ-specific context for problem ${problemId}...`);
+                // const { documents, formattedContext } = await this.ragService.retrieveBOJContext(problemId);
+                // ragContext = formattedContext;
+                // console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
+                // if (documents.length > 0) {
+                //     const docTypes = documents.map(d => d.metadata.type).join(', ');
+                //     console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
+                // }
 
                 // Get local BOJ data
                 console.log(`  [Worker A] Loading local BOJ data for problem ${problemId}...`);
@@ -61,16 +62,18 @@ export class ContextAggregator {
                     console.log(`  [Worker A] Local BOJ Data: Not found`);
                 }
             } else if (this.ragService.isEnabled()) {
-                console.log(`  [Worker A] Retrieving general RAG context...`);
-                const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
-                ragContext = formattedContext;
-                if (documents.length > 0) {
-                    console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
-                    const docTypes = documents.map(d => d.metadata.type).join(', ');
-                    console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
-                } else {
-                    console.log(`  [Worker A] RAG: No relevant documents found`);
-                }
+                // RAG retrieval disabled by user request
+                // console.log(`  [Worker A] Retrieving general RAG context...`);
+                // const { documents, formattedContext } = await this.ragService.retrieveContext(userMessage);
+                // ragContext = formattedContext;
+                // if (documents.length > 0) {
+                //     console.log(`  [Worker A] RAG: Retrieved ${documents.length} document(s)`);
+                //     const docTypes = documents.map(d => d.metadata.type).join(', ');
+                //     console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
+                // } else {
+                //     console.log(`  [Worker A] RAG: No relevant documents found`);
+                // }
+                console.log(`  [Worker A] RAG: Search disabled by user request.`);
             } else {
                 console.log(`  [Worker A] RAG: Service disabled`);
             }

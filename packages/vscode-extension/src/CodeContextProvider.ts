@@ -16,7 +16,41 @@ export interface DiagnosticInfo {
     column: number;
 }
 
+export type CodingState = 'NOT_STARTED' | 'WRITING' | 'HAS_ERROR' | 'SOLVED';
+
+export interface CodingStateInfo {
+    state: CodingState;
+    codeLength: number;
+    hasErrors: boolean;
+    hasWarnings: boolean;
+}
+
 export class CodeContextProvider {
+    /**
+     * Get the current coding state based on code length and diagnostics
+     */
+    getCodingState(): CodingStateInfo {
+        const context = this.getActiveContext();
+
+        if (!context) {
+            return { state: 'NOT_STARTED', codeLength: 0, hasErrors: false, hasWarnings: false };
+        }
+
+        const codeLength = context.content.trim().length;
+        const hasErrors = context.diagnostics.some(d => d.severity === 'error');
+        const hasWarnings = context.diagnostics.some(d => d.severity === 'warning');
+
+        if (codeLength === 0) {
+            return { state: 'NOT_STARTED', codeLength, hasErrors, hasWarnings };
+        }
+
+        if (hasErrors) {
+            return { state: 'HAS_ERROR', codeLength, hasErrors, hasWarnings };
+        }
+
+        return { state: 'WRITING', codeLength, hasErrors, hasWarnings };
+    }
+
     /**
      * Get the current code context from the active editor
      */
