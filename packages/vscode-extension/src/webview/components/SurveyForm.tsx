@@ -9,18 +9,14 @@ interface SurveyFormProps {
 }
 
 const ALGORITHM_TAGS = [
-    'DP (동적 프로그래밍)',
-    'DFS (깊이 우선 탐색)',
-    'BFS (너비 우선 탐색)',
-    'Greedy (탐욕법)',
-    'Implementation (구현)',
-    'Graph (그래프)',
-    'Tree (트리)',
     'Math (수학)',
+    'Geometry (기하학)',
+    'Implementation (구현)',
+    'Dynamic Programming (동적 프로그래밍)',
+    'Greedy (탐욕법)',
+    'Graphs (그래프)',
+    'Data Structures (자료구조)',
     'String (문자열)',
-    'Backtracking (백트래킹)',
-    'Binary Search (이분 탐색)',
-    'Sorting (정렬)',
 ];
 
 export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics, onComplete }) => {
