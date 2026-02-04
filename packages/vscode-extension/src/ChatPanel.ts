@@ -82,6 +82,24 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     // Trigger a welcome back message
                     await this.handleChatMessage("(The User has returned to the app. Welcome him back to the shared workspace. Be casual, referencing the time or just successful return. Use your Persona.)", true);
                     break;
+
+                case 'getCurrentProblem':
+                    // Send current working problem to frontend
+                    this.postMessage({
+                        type: 'currentProblem',
+                        problemId: this.userDataStore.getCurrentProblem()
+                    });
+                    break;
+
+                case 'setCurrentProblem':
+                    // Set current working problem
+                    await this.userDataStore.setCurrentProblem(message.problemId);
+                    break;
+
+                case 'getRecommendedProblems':
+                    // Fetch recommended problems based on user tier
+                    await this.handleGetRecommendedProblems(message.data);
+                    break;
             }
         });
     }
@@ -233,6 +251,24 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
+    private async handleGetRecommendedProblems(data: { userTier: number; solvedCount: number }) {
+        try {
+            console.log('[ChatPanel] Fetching recommended problems for tier:', data.userTier);
+            const recommendations = await this.solvedAcService.getRecommendedProblems(data.userTier, 5);
+
+            this.postMessage({
+                type: 'recommendedProblems',
+                data: recommendations
+            });
+        } catch (error) {
+            console.error('[ChatPanel] Failed to fetch recommended problems:', error);
+            this.postMessage({
+                type: 'recommendedProblems',
+                data: []
+            });
+        }
+    }
+
     private async handleChatMessage(content: string, isHidden: boolean = false, images?: string[]) {
         if (!isHidden) {
             console.log('[ChatPanel] User message:', content);
@@ -260,28 +296,28 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         console.log('[ChatPanel] About to call chatGPTService.sendMessage()...');
         try {
             await this.chatGPTService.sendMessage(content, {
-            onToken: (token) => {
-                this.postMessage({
-                    type: 'botMessageToken',
-                    token: token
-                });
-            },
-            onComplete: (fullResponse) => {
-                this.postMessage({
-                    type: 'botMessageComplete',
-                    content: fullResponse
-                });
-            },
-            onError: (error) => {
-                console.error('[ChatPanel] ChatGPT Error:', error);
-                console.error('[ChatPanel] Error details:', error.message, error.stack);
-                this.postMessage({
-                    type: 'botMessageError',
-                    error: error.message
-                });
-            }
-        }, images);
-        console.log('[ChatPanel] sendMessage() call completed');
+                onToken: (token) => {
+                    this.postMessage({
+                        type: 'botMessageToken',
+                        token: token
+                    });
+                },
+                onComplete: (fullResponse) => {
+                    this.postMessage({
+                        type: 'botMessageComplete',
+                        content: fullResponse
+                    });
+                },
+                onError: (error) => {
+                    console.error('[ChatPanel] ChatGPT Error:', error);
+                    console.error('[ChatPanel] Error details:', error.message, error.stack);
+                    this.postMessage({
+                        type: 'botMessageError',
+                        error: error.message
+                    });
+                }
+            }, images);
+            console.log('[ChatPanel] sendMessage() call completed');
         } catch (error) {
             console.error('[ChatPanel] Exception in sendMessage():', error);
             console.error('[ChatPanel] Exception details:', error instanceof Error ? error.stack : String(error));

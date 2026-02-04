@@ -280,4 +280,46 @@ export class SolvedAcService {
 
         return parts.join(' ');
     }
+
+    /**
+     * Get recommended problems based on user tier
+     * @param userTier - User's Solved.ac tier (0-30)
+     * @param count - Number of problems to recommend (default 5)
+     */
+    async getRecommendedProblems(userTier: number, count: number = 5): Promise<{
+        problemId: string;
+        title: string;
+        level: string;
+        tags: string[];
+    }[]> {
+        try {
+            // Query problems around user's tier (±2 levels for variety)
+            const minLevel = Math.max(1, userTier - 2);
+            const maxLevel = Math.min(30, userTier + 2);
+
+            // Solved.ac API endpoint for problem search
+            const query = `tier:${minLevel}..${maxLevel}`;
+            const response = await fetch(
+                `${SolvedAcService.API_BASE}/search/problem?query=${encodeURIComponent(query)}&sort=random&direction=asc&page=1`
+            );
+
+            if (!response.ok) {
+                console.error('[SolvedAcService] Failed to fetch recommendations:', response.statusText);
+                return [];
+            }
+
+            const data = await response.json();
+            const problems = data.items || [];
+
+            return problems.slice(0, count).map((p: any) => ({
+                problemId: String(p.problemId),
+                title: p.titleKo || p.title || `Problem ${p.problemId}`,
+                level: SolvedAcService.TIER_NAMES[p.level] || `Level ${p.level}`,
+                tags: (p.tags || []).slice(0, 3).map((t: any) => this.getKoreanTagName(t))
+            }));
+        } catch (error) {
+            console.error('[SolvedAcService] Error fetching recommendations:', error);
+            return [];
+        }
+    }
 }

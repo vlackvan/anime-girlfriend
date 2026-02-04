@@ -143,4 +143,29 @@ export class UserDataStore {
         await this.globalState.update(HINT_LEVELS_KEY, hintLevels);
         console.log(`[UserDataStore] Hint level reset for problem ${problemId}`);
     }
+
+    /**
+     * Get current working problem ID
+     */
+    getCurrentProblem(): string | undefined {
+        return this.globalState.get<string>('anime-girlfriend.currentProblem');
+    }
+
+    /**
+     * Set current working problem ID
+     * @param problemId - BOJ problem ID
+     */
+    async setCurrentProblem(problemId: string): Promise<void> {
+        await this.globalState.update('anime-girlfriend.currentProblem', problemId);
+        console.log(`[UserDataStore] Current problem set to: ${problemId}`);
+    }
+
+    /**
+     * Clear current working problem
+     */
+    async clearCurrentProblem(): Promise<void> {
+        await this.globalState.update('anime-girlfriend.currentProblem', undefined);
+        console.log('[UserDataStore] Current problem cleared');
+    }
 }
+

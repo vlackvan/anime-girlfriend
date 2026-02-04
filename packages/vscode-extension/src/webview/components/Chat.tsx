@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Character, UserProfile } from '../personality/types';
 import { BongoCat } from './BongoCat';
+import { ProblemSelector } from './ProblemSelector';
 
 interface Message {
     id: string;
@@ -19,9 +20,14 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
     // Generate initial greeting message
     const [messages, setMessages] = useState<Message[]>([]);
     const [isBongoCatOpen, setIsBongoCatOpen] = useState(true);
+    const [currentProblem, setCurrentProblem] = useState<string | null>(null);
+    const [showProblemSelector, setShowProblemSelector] = useState(false);
 
     useEffect(() => {
         console.log('Chat component mounted v2.1 - checking icons');
+
+        // Request current problem from backend
+        window.vscode.postMessage({ type: 'getCurrentProblem' });
     }, []);
 
     // Trigger initial greeting logic
@@ -82,6 +88,14 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
             const message = event.data;
 
             switch (message.type) {
+                case 'currentProblem':
+                    setCurrentProblem(message.problemId || null);
+                    // Show selector if no current problem
+                    if (!message.problemId) {
+                        setShowProblemSelector(true);
+                    }
+                    break;
+
                 case 'botMessageStart':
                     // Start a new streaming message
                     setStreamingMessageId(message.id);
@@ -190,11 +204,36 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
         setIsBongoCatOpen(prev => !prev);
     };
 
+    const handleProblemSelect = (problemId: string) => {
+        setCurrentProblem(problemId);
+        setShowProblemSelector(false);
+        window.vscode.postMessage({
+            type: 'setCurrentProblem',
+            problemId
+        });
+    };
+
+    const handleChangeProblem = () => {
+        setShowProblemSelector(true);
+    };
+
     return (
         <div className={`chat-wrapper ${isBongoCatOpen ? '' : 'bongo-closed'}`}>
             <div className="chat">
                 <div className="chat-header">
                     <div className="chat-title">🍑MomoTalk</div>
+                    {currentProblem && (
+                        <div className="current-problem-badge">
+                            <span className="problem-text">문제 #{currentProblem}</span>
+                            <button
+                                className="change-problem-btn"
+                                onClick={handleChangeProblem}
+                                title="문제 변경"
+                            >
+                                변경
+                            </button>
+                        </div>
+                    )}
                     <div className="chat-header-info">
                         <img
                             src={character === 'aru' ? window.assetBaseUri?.aru : window.assetBaseUri?.chihiro}
@@ -327,6 +366,16 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
             <div className={`bongo-cat-section ${isBongoCatOpen ? 'open' : 'closed'}`}>
                 <BongoCat />
             </div>
+
+            {/* Problem Selector Modal */}
+            {showProblemSelector && (
+                <ProblemSelector
+                    onSelect={handleProblemSelect}
+                    onClose={() => setShowProblemSelector(false)}
+                    userTier={profile.solvedAcData && 'tier' in profile.solvedAcData ? profile.solvedAcData.tier : 0}
+                    solvedCount={profile.solvedAcData && 'solvedCount' in profile.solvedAcData ? profile.solvedAcData.solvedCount : 0}
+                />
+            )}
         </div>
     );
 };

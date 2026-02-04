@@ -31,10 +31,10 @@ export class ContextAggregator {
      * Aggregate all context for the pipeline
      */
     async aggregate(userMessage: string): Promise<AggregatedContext> {
-        console.log(`  [Worker A] Detecting BOJ problem...`);
-        const detectedProblemId = this.detectBOJProblem(userMessage);
-        const problemId = detectedProblemId ?? undefined;
-        console.log(`  [Worker A] Problem ID detected: ${problemId || 'None'}`);
+        // Get current working problem from store (explicit tracking)
+        console.log(`  [Worker A] Getting current working problem...`);
+        const problemId = this.userDataStore.getCurrentProblem();
+        console.log(`  [Worker A] Current Working Problem: ${problemId || 'None (no problem selected)'}`);
 
         let ragContext = '';
         let localBOJData: LocalBOJProblem | undefined;
@@ -50,7 +50,7 @@ export class ContextAggregator {
                     const docTypes = documents.map(d => d.metadata.type).join(', ');
                     console.log(`  [Worker A] RAG: Document types: ${docTypes}`);
                 }
-                
+
                 // Get local BOJ data
                 console.log(`  [Worker A] Loading local BOJ data for problem ${problemId}...`);
                 const localData = await this.ragService.getLocalBOJProblem(problemId);
