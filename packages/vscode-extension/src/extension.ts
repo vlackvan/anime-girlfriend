@@ -49,9 +49,36 @@ export async function activate(context: vscode.ExtensionContext) {
     const port = vscode.workspace.getConfiguration('anime-girlfriend').get('serverPort', 3000);
     const localServer = new LocalServer(
         port,
-        (data) => {
-            console.log('[Anime Girlfriend] BOJ Judge Result:', data);
-            chatPanel.showJudgeResult(data);
+        async (data) => {
+            console.log('[Anime Girlfriend] BOJ Success:', data);
+            chatPanel.showOverlay(data.problemId);
+
+            // Auto-refresh Solved.ac profile after solving a problem
+            try {
+                const profile = userDataStore.loadProfile();
+                if (profile && profile.solvedAcData && 'handle' in profile.solvedAcData) {
+                    const handle = profile.solvedAcData.handle;
+                    console.log(`[Anime Girlfriend] Refreshing Solved.ac stats for: ${handle}`);
+
+                    const solvedAcService = new (await import('./SolvedAcService')).SolvedAcService();
+                    const updatedStats = await solvedAcService.getStatsSummary(handle);
+
+                    // Update profile with new stats
+                    await userDataStore.updateSolvedAcData(updatedStats);
+
+                    // Refresh ChatGPT service with updated profile
+                    const refreshedProfile = userDataStore.loadProfile();
+                    if (refreshedProfile) {
+                        chatGPTService.setUserProfile(refreshedProfile);
+                    }
+
+                    console.log('[Anime Girlfriend] Profile refreshed successfully');
+                    vscode.window.showInformationMessage(`✅ Profile updated! Solved: ${updatedStats.solvedCount} problems`);
+                }
+            } catch (error) {
+                console.error('[Anime Girlfriend] Failed to refresh profile:', error);
+                // Don't show error to user, just log it
+            }
         },
         () => {
             const profile = userDataStore.loadProfile();
@@ -167,9 +194,9 @@ export async function activate(context: vscode.ExtensionContext) {
                 // Show formatted context in a new document
                 const doc = await vscode.workspace.openTextDocument({
                     content: `# RAG Test Results for: "${query}"\n\n` +
-                             `Found ${result.documents.length} document(s)\n\n` +
-                             `## Document Types:\n${result.documents.map(d => `- ${d.metadata.type} (similarity: ${(d.similarity * 100).toFixed(1)}%)`).join('\n')}\n\n` +
-                             `## Formatted Context (This is what gets sent to ChatGPT):\n\n${result.formattedContext || '(empty)'}`,
+                        `Found ${result.documents.length} document(s)\n\n` +
+                        `## Document Types:\n${result.documents.map(d => `- ${d.metadata.type} (similarity: ${(d.similarity * 100).toFixed(1)}%)`).join('\n')}\n\n` +
+                        `## Formatted Context (This is what gets sent to ChatGPT):\n\n${result.formattedContext || '(empty)'}`,
                     language: 'markdown'
                 });
                 await vscode.window.showTextDocument(doc);

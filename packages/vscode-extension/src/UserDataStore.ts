@@ -87,6 +87,19 @@ export class UserDataStore {
     }
 
     /**
+     * Update Solved.ac data (after solving a problem)
+     */
+    async updateSolvedAcData(solvedAcData: SolvedAcStats | SolvedAcManualInput): Promise<void> {
+        const profile = this.loadProfile();
+        if (profile) {
+            profile.solvedAcData = solvedAcData;
+            profile.updatedAt = new Date().toISOString();
+            await this.globalState.update(PROFILE_KEY, profile);
+            console.log('[UserDataStore] Solved.ac data updated');
+        }
+    }
+
+    /**
      * Clear all stored data (reset)
      */
     async clearProfile(): Promise<void> {

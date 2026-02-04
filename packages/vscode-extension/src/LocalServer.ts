@@ -3,16 +3,16 @@ import * as http from 'http';
 export interface BOJJudgeResult {
     problemId: string;
     resultText: string;
-    status: 'accepted' | 'wrong_answer' | 'time_limit' | 'memory_limit' | 
-            'runtime_error' | 'compile_error' | 'output_limit' | 
-            'presentation_error' | 'unknown';
+    status: 'accepted' | 'wrong_answer' | 'time_limit' | 'memory_limit' |
+    'runtime_error' | 'compile_error' | 'output_limit' |
+    'presentation_error' | 'unknown';
     memory?: string;
     time?: string;
     submissionId?: string;
     timestamp?: string;
 }
 
-type BOJCallback = (data: BOJJudgeResult) => void;
+type BOJCallback = (data: BOJJudgeResult) => void | Promise<void>;
 type GetCharacterCallback = () => 'aru' | 'chihiro' | undefined;
 
 export class LocalServer {
