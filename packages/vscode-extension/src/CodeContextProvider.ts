@@ -120,14 +120,11 @@ export class CodeContextProvider {
             result += `### Selected Code\n\`\`\`${context.languageId}\n${context.selectedText}\n\`\`\`\n\n`;
         }
 
-        // Add full code (truncated)
+        // Add full code (all lines, up to 2000 line limit set earlier)
         const codeLines = context.content.split('\n');
-        const showLines = Math.min(codeLines.length, 100); // Limit for prompt
-        result += `### Code (first ${showLines} lines)\n\`\`\`${context.languageId}\n`;
-        result += codeLines.slice(0, showLines).join('\n');
-        if (codeLines.length > showLines) {
-            result += `\n// ... (${codeLines.length - showLines} more lines)`;
-        }
+        const showLines = codeLines.length; // Show ALL lines
+        result += `### Code (${showLines} lines)\n\`\`\`${context.languageId}\n`;
+        result += context.content; // Send all content
         result += '\n```\n';
 
         return result;
