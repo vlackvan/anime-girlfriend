@@ -215,6 +215,12 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                         });
                     }
                     break;
+
+                case 'clearChat':
+                    // Clear all messages and reset hint phase when problem changes
+                    setMessages([]);
+                    setHintPhase('DEFAULT');
+                    break;
             }
         };
 

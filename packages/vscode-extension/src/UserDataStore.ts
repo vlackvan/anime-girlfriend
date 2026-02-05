@@ -32,7 +32,7 @@ const PROFILE_KEY = 'anime-girlfriend.userProfile';
 const HINT_LEVELS_KEY = 'anime-girlfriend.hintLevels';
 const PROBLEM_CACHE_KEY = 'anime-girlfriend.problemCache';
 
-// Problem-specific hint levels (0 = no hint, 1 = idea, 2 = algorithm, 3 = pseudocode, 4 = code)
+// Problem-specific hint levels (0-4: increasing hints, 4 = full solution code)
 export interface ProblemHintLevels {
     [problemId: string]: number;
 }
@@ -129,7 +129,7 @@ export class UserDataStore {
     /**
      * Get hint level for a specific problem
      * @param problemId - BOJ problem ID
-     * @returns Current hint level (0-4)
+     * @returns Current hint level (0-4, where 4 = full solution)
      */
     getHintLevel(problemId: string): number {
         const hintLevels = this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
@@ -144,7 +144,7 @@ export class UserDataStore {
     async incrementHintLevel(problemId: string): Promise<number> {
         const hintLevels = this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
         const currentLevel = hintLevels[problemId] || 0;
-        const newLevel = Math.min(currentLevel + 1, 4); // Max level is 4
+        const newLevel = Math.min(currentLevel + 1, 4); // Max level is 4 (full solution)
         hintLevels[problemId] = newLevel;
         await this.globalState.update(HINT_LEVELS_KEY, hintLevels);
         console.log(`[UserDataStore] Hint level for problem ${problemId}: ${currentLevel} → ${newLevel}`);
@@ -233,6 +233,22 @@ export class UserDataStore {
             await this.globalState.update(PROBLEM_CACHE_KEY, {});
             console.log('[UserDataStore] All cached problems cleared');
         }
+    }
+
+    /**
+     * Get all hint levels for debugging
+     * @returns All problem hint levels
+     */
+    getAllHintLevels(): ProblemHintLevels {
+        return this.globalState.get<ProblemHintLevels>(HINT_LEVELS_KEY, {});
+    }
+
+    /**
+     * Get all cached problems for debugging
+     * @returns All cached problems
+     */
+    getAllCachedProblems(): ProblemCache {
+        return this.globalState.get<ProblemCache>(PROBLEM_CACHE_KEY, {});
     }
 }
 

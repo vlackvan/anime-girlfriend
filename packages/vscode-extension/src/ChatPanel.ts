@@ -114,6 +114,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                 case 'setCurrentProblem':
                     // Set current working problem and send its hint level
                     await this.userDataStore.setCurrentProblem(message.problemId);
+
+                    // Clear chat history when switching problems
+                    this.chatGPTService.clearHistory();
+                    this.postMessage({
+                        type: 'clearChat'
+                    });
+
                     // Check if problem is new and generate solution if needed
                     if (message.problemId) {
                         await this.handleProblemSelection(message.problemId);
@@ -313,13 +320,65 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         }
     }
 
+    private async handleProblemSelection(problemId: string) {
+        try {
+            console.log(`[ChatPanel] 📋 Problem ${problemId} selected, checking cache...`);
+
+            // Check if problem is already cached
+            const cached = this.userDataStore.getCachedProblem(problemId);
+            if (cached) {
+                console.log(`[ChatPanel] ✅ Problem ${problemId} already cached (${cached.cachedAt})`);
+                return;
+            }
+
+            console.log(`[ChatPanel] 🔄 Problem ${problemId} not cached, generating solution summary...`);
+
+            // Fetch problem description
+            const description = await fetchProblemDescription(problemId);
+            if (!description) {
+                console.log(`[ChatPanel] ❌ Failed to fetch problem description for ${problemId}`);
+                return;
+            }
+
+            // Get tags from local BOJ data
+            const localData = await this.ragService.getLocalBOJProblem(problemId);
+            const tags = localData?.tags || [];
+
+            console.log(`[ChatPanel] 📝 Generating solution summary for problem ${problemId}...`);
+            console.log(`[ChatPanel]   - Tags: ${tags.join(', ')}`);
+
+            // Generate solution summary
+            const solutionSummary = await this.problemSolutionService.generateSolutionSummary(
+                problemId,
+                description,
+                tags
+            );
+
+            // Cache the problem data
+            await this.userDataStore.saveCachedProblem({
+                problemId,
+                problemDescription: description.problemDescription,
+                problemInput: description.problemInput,
+                problemOutput: description.problemOutput,
+                tags,
+                solutionSummary,
+                cachedAt: new Date().toISOString()
+            });
+
+            console.log(`[ChatPanel] ✅ Problem ${problemId} cached successfully`);
+        } catch (error) {
+            console.error(`[ChatPanel] ❌ Error handling problem selection for ${problemId}:`, error);
+            // Don't throw - caching is optional, continue even if it fails
+        }
+    }
+
     private async handleFetchProblemDescription(problemId: string) {
         try {
             console.log(`[ChatPanel] 🔍 Fetching problem description for problem ${problemId}...`);
             const startTime = Date.now();
             const description = await fetchProblemDescription(problemId);
             const fetchTime = Date.now() - startTime;
-            
+
             if (description) {
                 console.log(`[ChatPanel] ✅ Problem description fetched successfully for problem ${problemId} (${fetchTime}ms)`);
                 console.log(`[ChatPanel] Description length: ${description.problemDescription.length} chars`);

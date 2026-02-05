@@ -61,9 +61,14 @@ export const RecommendedQuestions: React.FC<RecommendedQuestionsProps> = ({
     disabled = false
 }) => {
     const stateQuestions = QUESTIONS_BY_STATE[codingState];
+
+    // If hint level is 4 or higher, user has exhausted all hints (received full solution)
+    // Don't show any level-based questions
+    const showLevelQuestions = hintLevel < 4;
+
     // Cap hint level at max (3) to ensure level questions always exist
     const cappedHintLevel = Math.min(hintLevel, 3);
-    const levelQuestions = QUESTIONS_BY_LEVEL[cappedHintLevel];
+    const levelQuestions = showLevelQuestions ? QUESTIONS_BY_LEVEL[cappedHintLevel] : null;
 
     return (
         <div className="recommended-questions">
@@ -80,6 +85,7 @@ export const RecommendedQuestions: React.FC<RecommendedQuestionsProps> = ({
             ))}
 
             {/* Level-based question - show ONE at a time based on phase */}
+            {/* Hide level questions if user has reached level 4 (full solution given) */}
             {levelQuestions && (
                 <>
                     {hintPhase === 'DEFAULT' && (

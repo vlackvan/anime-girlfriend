@@ -173,6 +173,67 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             await vscode.window.showTextDocument(doc);
         }),
+        vscode.commands.registerCommand('anime-girlfriend.debugStorage', async () => {
+            const profile = userDataStore.loadProfile();
+            const currentProblem = userDataStore.getCurrentProblem();
+            const allHintLevels = userDataStore.getAllHintLevels();
+            const allCachedProblems = userDataStore.getAllCachedProblems();
+
+            const storageData = {
+                currentProblem: currentProblem || null,
+                profile: profile ? {
+                    character: profile.character,
+                    demographics: profile.demographics,
+                    solvedAcData: profile.solvedAcData,
+                    createdAt: profile.createdAt,
+                    updatedAt: profile.updatedAt,
+                    hasCoreMemories: !!profile.coreMemories,
+                    hasAnalysis: !!profile.analysis
+                } : null,
+                hintLevels: allHintLevels,
+                cachedProblems: Object.entries(allCachedProblems).reduce((acc, [id, data]) => {
+                    acc[id] = {
+                        problemId: data.problemId,
+                        tags: data.tags,
+                        cachedAt: data.cachedAt,
+                        descriptionLength: data.problemDescription.length,
+                        solutionSummaryLength: data.solutionSummary.length
+                    };
+                    return acc;
+                }, {} as Record<string, any>),
+                summary: {
+                    totalProblemsWithHints: Object.keys(allHintLevels).length,
+                    totalCachedProblems: Object.keys(allCachedProblems).length,
+                    hasProfile: !!profile
+                }
+            };
+
+            const content = '# Anime Girlfriend - Storage Debug\n\n' +
+                '## Summary\n' +
+                `- Current Problem: ${currentProblem || '(none)'}\n` +
+                `- Profile: ${profile ? 'Yes' : 'No'}\n` +
+                `- Problems with hint levels: ${Object.keys(allHintLevels).length}\n` +
+                `- Cached problems: ${Object.keys(allCachedProblems).length}\n\n` +
+                '## Full Storage Data (JSON)\n\n```json\n' +
+                JSON.stringify(storageData, null, 2) +
+                '\n```\n\n' +
+                '## Detailed Cached Problems\n\n' +
+                (Object.keys(allCachedProblems).length > 0
+                    ? Object.entries(allCachedProblems).map(([id, data]) =>
+                        `### Problem ${id}\n` +
+                        `- Tags: ${data.tags.join(', ')}\n` +
+                        `- Cached: ${data.cachedAt}\n` +
+                        `- Description: ${data.problemDescription.substring(0, 200)}...\n` +
+                        `- Solution Summary: ${data.solutionSummary.substring(0, 200)}...\n`
+                    ).join('\n')
+                    : '(No cached problems)\n');
+
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: 'markdown'
+            });
+            await vscode.window.showTextDocument(doc);
+        }),
         vscode.commands.registerCommand('anime-girlfriend.ingestSolutions', async () => {
             try {
                 vscode.window.showInformationMessage('Scanning workspace for BOJ solutions...');

@@ -37,6 +37,11 @@
                 "category": "Anime Girlfriend"
             },
             {
+                "command": "anime-girlfriend.debugStorage",
+                "title": "Debug: Show All Storage (Cached Problems, Hint Levels)",
+                "category": "Anime Girlfriend"
+            },
+            {
                 "command": "anime-girlfriend.ingestSolutions",
                 "title": "RAG: Ingest BOJ Solutions",
                 "category": "Anime Girlfriend"
