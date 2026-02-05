@@ -34,7 +34,19 @@ export class ContextAggregator {
     async aggregate(userMessage: string): Promise<AggregatedContext> {
         // Get current working problem from store (explicit tracking)
         console.log(`  [Worker A] Getting current working problem...`);
-        const problemId = this.userDataStore.getCurrentProblem();
+        let problemId = this.userDataStore.getCurrentProblem();
+
+        // Check if the message is conversational (not problem-related)
+        const isConversational = this.isConversationalMessage(userMessage);
+        console.log(`  [Worker A] Message Type: ${isConversational ? 'Conversational' : 'Problem-related'}`);
+
+        // If message is conversational, don't use the current problem context
+        // This allows the agent to have normal conversations
+        if (isConversational && problemId) {
+            console.log(`  [Worker A] Ignoring current problem (${problemId}) for conversational message`);
+            problemId = undefined;
+        }
+
         console.log(`  [Worker A] Current Working Problem: ${problemId || 'None (no problem selected)'}`);
 
         let ragContext = '';
@@ -188,6 +200,74 @@ export class ContextAggregator {
         console.log(`    - Hint Level: ${hintLevel}`);
 
         return context;
+    }
+
+    /**
+     * Detect if a message is conversational (not problem-related)
+     * Returns true if the message is general conversation, false if it's asking about a problem
+     */
+    private isConversationalMessage(message: string): boolean {
+        const lowerMessage = message.toLowerCase();
+
+        // Problem-related keywords (Korean and English)
+        const problemKeywords = [
+            '힌트', 'hint', '문제', 'problem', '풀이', 'solution',
+            '어떻게', 'how', '알고리즘', 'algorithm', '코드', 'code',
+            '디버그', 'debug', '에러', 'error', '틀렸', 'wrong',
+            '접근', 'approach', '방법', 'method', '시간복잡도', 'complexity',
+            '도와', 'help', '설명', 'explain', '이해', 'understand',
+            '뭐야', '뭔지', '모르겠', '막혔', '안돼', '안풀려'
+        ];
+
+        // Conversational keywords (Korean and English)
+        const conversationalKeywords = [
+            '안녕', '하이', 'hi', 'hello', '사랑', 'love',
+            '좋아', '행복', 'happy', '기억', 'memory', '추억',
+            '어때', '어떻', 'how are', '오늘', 'today',
+            '함께', 'together', '같이', '우리', 'we', 'us',
+            '고마', 'thank', '미안', 'sorry', '잘했', 'good job',
+            '재밌', 'fun', '신나', 'excited', '피곤', 'tired',
+            '배고', 'hungry', '자', 'sleep', '아침', '점심', '저녁'
+        ];
+
+        // Check if message contains problem-related keywords
+        const hasProblemKeywords = problemKeywords.some(keyword =>
+            lowerMessage.includes(keyword)
+        );
+
+        // Check if message contains conversational keywords
+        const hasConversationalKeywords = conversationalKeywords.some(keyword =>
+            lowerMessage.includes(keyword)
+        );
+
+        // If it has problem keywords but not conversational ones, it's problem-related
+        if (hasProblemKeywords && !hasConversationalKeywords) {
+            return false;
+        }
+
+        // If it has conversational keywords, it's conversational
+        if (hasConversationalKeywords) {
+            return true;
+        }
+
+        // Very short messages (< 10 chars) are likely conversational
+        if (message.trim().length < 10) {
+            return true;
+        }
+
+        // Check if message contains question words with problem context
+        const questionWords = ['어떻게', 'how', '왜', 'why', '뭐', 'what'];
+        const hasQuestionWord = questionWords.some(word => lowerMessage.includes(word));
+
+        // Question words with problem keywords = problem-related
+        // Question words without problem keywords = might be conversational
+        if (hasQuestionWord && !hasProblemKeywords) {
+            return true;
+        }
+
+        // Default: if unclear, treat as problem-related to maintain current behavior
+        // This is a safe default for the tutoring system
+        return false;
     }
 
     /**
