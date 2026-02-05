@@ -9,8 +9,6 @@
 
 ---
 ![Aru_Portrait](https://github.com/user-attachments/assets/23867f07-e5bb-4ef5-8e34-650f1edae2bc)
-![Aru_Portrait](https://github.com/user-attachments/assets/23867f07-e5bb-4ef5-8e34-650f1edae2bc)
-
 ## 📌 프로젝트 개요
 
 **Anime Girlfriend**는 백준 온라인 저지(BOJ) 문제 풀이를 지원하는 AI 기반 VSCode Extension + Chrome Extension 통합 시스템입니다.  
