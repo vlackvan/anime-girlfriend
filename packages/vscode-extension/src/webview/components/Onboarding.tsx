@@ -75,7 +75,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onCharacterSelect }) => 
             {/* Cinematic Intro Overlay */}
             {showCinematicOverlay && (
                 <div className="cinematic-overlay">
-                    <h1 className="cinematic-title">당신의 코딩을 같이할 여자친구를 골라보세요</h1>
+                    <h1 className="cinematic-title">알고리즘 문제풀이를 함께 할 학생을 선택해주세요</h1>
                 </div>
             )}
 

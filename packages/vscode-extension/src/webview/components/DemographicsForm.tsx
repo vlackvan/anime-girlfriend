@@ -87,7 +87,7 @@ export const DemographicsForm: React.FC<DemographicsFormProps> = ({ onComplete, 
                         onChange={(e) => setNickname(e.target.value)}
                         maxLength={20}
                     />
-                    <span className="field-hint">AI가 당신을 부를 이름입니다. 비워두면 "당신"으로 불립니다.</span>
+                    <span className="field-hint">학생이 당신을 부를 이름입니다. 비워두면 "선생님"으로 불립니다.</span>
                 </div>
 
                 <div className="form-group">
