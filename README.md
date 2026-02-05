@@ -8,6 +8,8 @@
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green?logo=google-chrome)](https://www.google.com/chrome/)
 
 ---
+![Aru_Portrait](https://github.com/user-attachments/assets/23867f07-e5bb-4ef5-8e34-650f1edae2bc)
+![Aru_Portrait](https://github.com/user-attachments/assets/23867f07-e5bb-4ef5-8e34-650f1edae2bc)
 
 ## 📌 프로젝트 개요
 
@@ -883,6 +885,10 @@ curl http://localhost:3000/health
 - **[OpenAI API Documentation](https://platform.openai.com/docs)** – GPT API 공식 문서  
 - **[VSCode Extension API](https://code.visualstudio.com/api)** – VSCode Extension 개발 가이드  
 - **[solved.ac API](https://solvedac.github.io/unofficial-documentation/)** – 백준 문제 메타데이터 API
+- **Bongo Cat Buddy** by John Harrison  
+  GitHub: https://github.com/JohnnyRacket/bongocat-vscode-ext  
+  Visual Studio Marketplace: https://marketplace.visualstudio.com/items?itemName=JohnHarrison.bongocat-buddy
+
 
 ---
 
@@ -892,5 +898,5 @@ curl http://localhost:3000/health
 성균관대 소프트웨어학과 21 이준한
 
 ---
-
+ 
 
