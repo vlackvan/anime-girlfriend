@@ -750,23 +750,6 @@ function getCodingState(): CodingStateInfo {
 }
 ```
 
-#### UI 애니메이션 매핑
-```javascript
-// Chat.tsx
-const getCharacterAnimation = (codingState) => {
-    switch (codingState) {
-        case 'idle':
-            return 'idle.gif';      // 가만히 있는 모습
-        case 'typing':
-            return 'typing.gif';    // 타이핑 애니메이션
-        case 'debugging':
-            return 'debugging.gif'; // 걱정스러운 표정
-        case 'running':
-            return 'running.gif';   // 기대하는 모습
-    }
-};
-```
-
 ---
 
 ## 🚀 향후 개선 계획
