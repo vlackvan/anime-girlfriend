@@ -15,7 +15,7 @@ export class StrategyAgent {
         context: AggregatedContext,
         apiKey: string
     ): Promise<string> {
-        const { problemId, localBOJData, ragContext, userTier, userTierName, hintLevel, solvedAcData } = context;
+        const { problemId, localBOJData, ragContext, codeContext, userTier, userTierName, hintLevel, solvedAcData } = context;
 
         console.log(`  [Worker B] Building strategy prompt...`);
 
@@ -135,7 +135,8 @@ Your task: Generate a hint at level ${hintLevel} that helps the user progress wi
 
 HINT LEVEL RESTRICTIONS (ENFORCE STRICTLY):
 - Level 0 (Concept & Direction):
-  * If user asks "내 접근법이 맞는지 봐줘" (check my approach): Look at their code context and answer "네, 맞아요!" or "아니요, 다른 방향을 생각해보세요" with brief reason (1 sentence).
+  * IMPORTANT: If code context is provided above (under "## Currently Editing" or similar), that IS the user's code. Analyze it!
+  * If user asks "내 접근법이 맞는지 봐줘" (check my approach) AND code is provided: Look at their code and answer "네, 맞아요!" or "아니요, 다른 방향을 생각해보세요" with brief reason (1 sentence).
   * If user has no code or approach: Give ONLY a vague conceptual direction (1 sentence).
   * FORBIDDEN at Level 0: Do NOT mention algorithm names (BFS, DP, Greedy, etc.). Describe conceptually only (e.g., "탐색을 층별로 진행해보세요").
 - Level 1 (Key Terms): Reveal algorithm names and data structure names ONLY (e.g., "이 문제는 BFS와 큐를 사용해요"). NO implementation details, NO pseudocode. 1 sentence max.
@@ -150,6 +151,15 @@ IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code
         if (problemDescriptionSection.length > 0) {
             console.log(`  [Worker B] 📋 Problem description section length in prompt: ${problemDescriptionSection.length} chars`);
         }
+        // Build user message with code context if available
+        let fullUserMessage = userMessage;
+        if (codeContext && codeContext.trim().length > 0) {
+            fullUserMessage = `${codeContext}\n\n===\n\nUser Question: ${userMessage}`;
+            console.log(`  [Worker B] ✅ Code context included in user message (${codeContext.length} chars)`);
+        } else {
+            console.log(`  [Worker B] ⚠️ No code context available`);
+        }
+
         console.log(`  [Worker B] Calling OpenAI API (gpt-4o)...`);
 
         try {
@@ -164,7 +174,7 @@ IMPORTANT: Your hint will be delivered by a persona wrapper. Do NOT include code
                     model: 'gpt-4o', // Use stronger model for logic
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userMessage }
+                        { role: 'user', content: fullUserMessage }
                     ],
                     temperature: 0.3, // Lower temperature for more consistent logic
                     max_tokens: 300
