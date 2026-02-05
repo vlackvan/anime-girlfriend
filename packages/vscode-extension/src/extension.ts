@@ -220,11 +220,13 @@ export async function activate(context: vscode.ExtensionContext) {
                 '## Detailed Cached Problems\n\n' +
                 (Object.keys(allCachedProblems).length > 0
                     ? Object.entries(allCachedProblems).map(([id, data]) =>
-                        `### Problem ${id}\n` +
-                        `- Tags: ${data.tags.join(', ')}\n` +
-                        `- Cached: ${data.cachedAt}\n` +
-                        `- Description: ${data.problemDescription.substring(0, 200)}...\n` +
-                        `- Solution Summary: ${data.solutionSummary.substring(0, 200)}...\n`
+                        `### Problem ${id}\n\n` +
+                        `**Tags:** ${data.tags.join(', ')}\n\n` +
+                        `**Cached:** ${data.cachedAt}\n\n` +
+                        `**Problem Description:**\n\n${data.problemDescription}\n\n` +
+                        `---\n\n` +
+                        `**Solution Summary (Full):**\n\n${data.solutionSummary}\n\n` +
+                        `---\n\n`
                     ).join('\n')
                     : '(No cached problems)\n');
 
