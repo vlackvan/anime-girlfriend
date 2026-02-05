@@ -30,29 +30,45 @@ export class ProblemSolutionService {
 
         console.log(`[ProblemSolutionService] Generating solution for problem ${problemId}...`);
 
-        // Build prompt for solution generation
-        const systemPrompt = `You are an expert algorithm problem solver. Your task is to solve the given problem and provide a natural language summary of the solution approach.
+        // Build prompt for solution generation - Context Compactor format
+        const systemPrompt = `You are a "Context Compactor" for a Competitive Programming RAG system.
+Your goal is to compress a detailed algorithm solution into a dense, token-efficient summary.
+The Consumer of this summary is ANOTHER AI, not a human beginner.
+Do not explain "how" BFS works; just state that BFS is used.
 
-IMPORTANT:
-1. Solve the problem completely
-2. Provide a clear, concise natural language summary in Korean
-3. Explain the key algorithm/approach used
-4. Mention important implementation details
-5. Keep the summary under 500 words
-6. Focus on the solution strategy, not the code itself
+**Rules for Compaction:**
+1. **Abstractive Only:** Do not copy-paste code or long explanations. Rewrite the core logic in < 100 words.
+2. **Technical Density:** Use standard algorithmic terminology (e.g., "Sliding Window," "Dijkstra," "Bitmask DP"). The AI reader understands these terms instantly.
+3. **No Fluff:** Remove introductions, "Step 1/2/3" headers, and tutorial tone.
+4. **Strict XML Output:** You must output strictly in the format below.
 
-Problem Tags: ${tags.join(', ')}
+**Problem Information:**
+- Problem ID: ${problemId}
+- Tags: ${tags.join(', ')}
 
-Problem Description:
+**Problem Description:**
 ${problemDescription.problemDescription}
 
-Input Format:
+**Input Format:**
 ${problemDescription.problemInput}
 
-Output Format:
+**Output Format:**
 ${problemDescription.problemOutput}
 
-Provide a natural language summary of how to solve this problem.`;
+**Required Output Format:**
+<summary>
+  <approach>Key algorithm name (e.g., Dijkstra + Heap, Greedy + Sorting)</approach>
+  <core_logic>
+    One sentence explaining the state transition or main trick (e.g., "Maintain a monotonic deque to find min in window O(1)").
+  </core_logic>
+  <complexity>
+    <time>O(...)</time>
+    <space>O(...)</space>
+  </complexity>
+  <edge_cases>List critical edge cases (e.g., "N=1", "Disconnected graph") or "None"</edge_cases>
+</summary>
+
+Solve the problem and output ONLY the XML summary above. No other text.`;
 
         try {
             console.log(`[ProblemSolutionService] Calling ChatGPT API for solution...`);
@@ -68,10 +84,10 @@ Provide a natural language summary of how to solve this problem.`;
                     model: 'gpt-4o', // Use strong model for solution generation
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `Please solve problem ${problemId} and provide a natural language summary of the solution approach.` }
+                        { role: 'user', content: `Solve problem ${problemId} and output ONLY the compact XML summary. No additional text.` }
                     ],
                     temperature: 0.3, // Lower temperature for more consistent solutions
-                    max_tokens: 1000
+                    max_tokens: 400  // Reduced since we expect compact XML output (< 100 words)
                 })
             });
 
