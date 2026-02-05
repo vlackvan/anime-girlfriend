@@ -183,7 +183,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 `- State: ${codingState.state}\n` +
                 `- Code Length: ${codingState.codeLength} chars\n` +
                 `- Has Errors: ${codingState.hasErrors ? 'Yes' : 'No'}\n` +
-                `- Has Warnings: ${codingState.hasWarnings ? 'No'}\n\n` +
+                `- Has Warnings: ${codingState.hasWarnings ? 'Yes' : 'No'}\n\n` +
                 '## Active File Info\n' +
                 (activeContext
                     ? `- File Name: ${activeContext.fileName}\n` +
