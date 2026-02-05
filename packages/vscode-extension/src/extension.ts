@@ -204,6 +204,22 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             await vscode.window.showTextDocument(doc);
         }),
+        vscode.commands.registerCommand('anime-girlfriend.clearProblemCache', async () => {
+            const choice = await vscode.window.showWarningMessage(
+                'This will clear all cached problem descriptions and solutions. Continue?',
+                'Yes',
+                'No'
+            );
+
+            if (choice === 'Yes') {
+                try {
+                    await userDataStore.clearCachedProblem(); // Clear all
+                    vscode.window.showInformationMessage('Problem cache cleared successfully. New problems will use the updated compact format.');
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to clear cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            }
+        }),
         vscode.commands.registerCommand('anime-girlfriend.debugStorage', async () => {
             const profile = userDataStore.loadProfile();
             const currentProblem = userDataStore.getCurrentProblem();

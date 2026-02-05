@@ -42,6 +42,11 @@
                 "category": "Anime Girlfriend"
             },
             {
+                "command": "anime-girlfriend.clearProblemCache",
+                "title": "Clear Problem Cache (Force Regenerate Summaries)",
+                "category": "Anime Girlfriend"
+            },
+            {
                 "command": "anime-girlfriend.debugStorage",
                 "title": "Debug: Show All Storage (Cached Problems, Hint Levels)",
                 "category": "Anime Girlfriend"

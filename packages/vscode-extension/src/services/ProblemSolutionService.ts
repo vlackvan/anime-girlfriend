@@ -32,15 +32,14 @@ export class ProblemSolutionService {
 
         // Build prompt for solution generation - Context Compactor format
         const systemPrompt = `You are a "Context Compactor" for a Competitive Programming RAG system.
-Your goal is to compress a detailed algorithm solution into a dense, token-efficient summary.
-The Consumer of this summary is ANOTHER AI, not a human beginner.
-Do not explain "how" BFS works; just state that BFS is used.
 
-**Rules for Compaction:**
-1. **Abstractive Only:** Do not copy-paste code or long explanations. Rewrite the core logic in < 100 words.
-2. **Technical Density:** Use standard algorithmic terminology (e.g., "Sliding Window," "Dijkstra," "Bitmask DP"). The AI reader understands these terms instantly.
-3. **No Fluff:** Remove introductions, "Step 1/2/3" headers, and tutorial tone.
-4. **Strict XML Output:** You must output strictly in the format below.
+**CRITICAL:** You MUST output ONLY the XML format shown below. NO other text. NO explanations. NO prose. ONLY XML.
+
+**Rules:**
+1. < 100 words total
+2. Use technical terms (BFS, DP, Greedy, etc.) - the AI consumer knows these
+3. NO code, NO step-by-step, NO "First/Then/Finally"
+4. ONE sentence for core_logic max
 
 **Problem Information:**
 - Problem ID: ${problemId}
@@ -55,20 +54,31 @@ ${problemDescription.problemInput}
 **Output Format:**
 ${problemDescription.problemOutput}
 
-**Required Output Format:**
+**EXAMPLE OUTPUT (for a different problem):**
 <summary>
-  <approach>Key algorithm name (e.g., Dijkstra + Heap, Greedy + Sorting)</approach>
-  <core_logic>
-    One sentence explaining the state transition or main trick (e.g., "Maintain a monotonic deque to find min in window O(1)").
-  </core_logic>
+  <approach>Digit DP / Math</approach>
+  <core_logic>For each digit position, calculate contribution by counting complete cycles (lower/higher) and adjusting for current digit.</core_logic>
   <complexity>
-    <time>O(...)</time>
-    <space>O(...)</space>
+    <time>O(log N)</time>
+    <space>O(1)</space>
   </complexity>
-  <edge_cases>List critical edge cases (e.g., "N=1", "Disconnected graph") or "None"</edge_cases>
+  <edge_cases>N is power of 10, leading zeros</edge_cases>
 </summary>
 
-Solve the problem and output ONLY the XML summary above. No other text.`;
+**YOUR OUTPUT FORMAT (for problem ${problemId}):**
+You MUST output EXACTLY this XML structure with NO additional text:
+
+<summary>
+  <approach>...</approach>
+  <core_logic>...</core_logic>
+  <complexity>
+    <time>...</time>
+    <space>...</space>
+  </complexity>
+  <edge_cases>...</edge_cases>
+</summary>
+
+OUTPUT ONLY THE XML. START WITH "<summary>" AND END WITH "</summary>". NOTHING ELSE.`;
 
         try {
             console.log(`[ProblemSolutionService] Calling ChatGPT API for solution...`);
