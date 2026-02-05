@@ -19,6 +19,25 @@ const ALGORITHM_TAGS = [
     'String (문자열)',
 ];
 
+// 티어 번호를 티어 이름으로 변환 (Solved.ac 기준)
+const formatTier = (tier: number): string => {
+    const TIER_NAMES = [
+        'Unrated',
+        'Bronze V', 'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
+        'Silver V', 'Silver IV', 'Silver III', 'Silver II', 'Silver I',
+        'Gold V', 'Gold IV', 'Gold III', 'Gold II', 'Gold I',
+        'Platinum V', 'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
+        'Diamond V', 'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
+        'Ruby V', 'Ruby IV', 'Ruby III', 'Ruby II', 'Ruby I',
+        'Master',
+    ];
+    
+    if (tier >= 0 && tier < TIER_NAMES.length) {
+        return TIER_NAMES[tier];
+    }
+    return `Tier ${tier}`;
+};
+
 export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics, onComplete }) => {
     // Phases: essay -> solvedac
     const [phase, setPhase] = useState<'essay' | 'solvedac'>('essay');
@@ -325,7 +344,7 @@ export const SurveyForm: React.FC<SurveyFormProps> = ({ character, demographics,
                                 <strong>연동 성공!</strong>
                                 <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
                                     <li>핸들: {solvedacData.handle}</li>
-                                    <li>티어: {solvedacData.tier}</li>
+                                    <li>티어: {formatTier(solvedacData.tier)}</li>
                                     <li>해결: {solvedacData.solvedCount}문제</li>
                                 </ul>
                                 <p style={{ marginTop: '8px', fontSize: '0.8rem', color: '#666' }}>
