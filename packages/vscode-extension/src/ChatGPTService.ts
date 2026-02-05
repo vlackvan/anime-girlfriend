@@ -152,26 +152,28 @@ export class ChatGPTService {
                 console.log(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
                 console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
                 console.log(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
-                console.log('[ChatGPTService] Calling strategyAgent.generateHint()...');
 
+                // Increment hint level BEFORE generating hint if shouldAdvanceHint is true
+                // This ensures the advance prompt queries at the NEXT level, not current level
+                if (shouldAdvanceHint) {
+                    const oldHintLevel = context.hintLevel;
+                    const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
+                    context.hintLevel = newHintLevel; // Update context BEFORE strategy generation
+                    console.log(`  - Hint Level Advanced: ${oldHintLevel} → ${newHintLevel} (before hint generation)`);
+                } else {
+                    console.log(`  - Hint Level: ${context.hintLevel} (no advancement)`);
+                }
+
+                console.log('[ChatGPTService] Calling strategyAgent.generateHint()...');
                 strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
                 console.log('[ChatGPTService] Strategy hint generation completed, hint length:', strategyHint.length);
 
                 // Log Worker B output
                 console.log(`\n✅ [Worker B] Strategy Hint Generated:`);
-                console.log(`  - Hint Level: ${context.hintLevel}`);
+                console.log(`  - Hint Level Used: ${context.hintLevel}`);
                 console.log(`  - Hint Length: ${strategyHint.length} chars`);
                 console.log(`  - Hint Content: "${strategyHint}"`);
                 console.log(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
-
-                // Only increment hint level if shouldAdvanceHint is true
-                if (shouldAdvanceHint) {
-                    const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
-                    console.log(`  - Hint Level Updated: ${context.hintLevel} → ${newHintLevel}`);
-                    context.hintLevel = newHintLevel; // Update context for later use
-                } else {
-                    console.log(`  - Hint Level NOT incremented (shouldAdvanceHint=false)`);
-                }
             } else {
                 console.log(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
                 console.log(`\n📦 [Worker B → Worker C] Using original message`);
