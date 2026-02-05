@@ -657,35 +657,6 @@ anime-girlfriend/
 
 ---
 
-## 🔬 기술 세부사항
-
-### Chain-of-Density (CoD) 성격 분석
-
-#### 프롬프트 구조
-```typescript
-// webview/personality/promptEngine.ts
-function generateCoDPrompt(essays: UserEssays): string {
-    return `
-당신은 사용자의 에세이를 분석하여 밀도 높은 성격 분석을 생성하는 전문가입니다.
-
-**사용자 에세이:**
-1. 자기소개: ${essays.selfIntro}
-2. 1년 후 모습: ${essays.futureVision}
-3. 스트레스 대처: ${essays.stressStrategy}
-4. 행복의 원천: ${essays.happiness}
-
-**분석 요구사항:**
-- 정확히 3문장으로 작성하세요
-- 각 문장은 사용자의 핵심 특성을 담아야 합니다
-- 학습 스타일, 동기, 성격 특성을 포함하세요
-- 구체적이고 실용적인 표현을 사용하세요
-
-**출력 형식:**
-3문장의 분석 결과만 작성하세요 (불필요한 서론/결론 없이)
-    `;
-}
-```
-
 #### 생성 결과 예시
 ```
 당신은 목표 지향적이며 체계적인 학습을 선호하는 개발자입니다.
