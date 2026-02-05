@@ -38,6 +38,28 @@ function isJudgingStatus(resultText) {
            resultText.includes('대기 중');
 }
 
+// 현재 로그인된 사용자 ID 가져오기 (BaekjoonHub 방식 참고)
+// 최초 1번만 호출되며, 이후에는 캐시된 값을 사용
+function getCurrentUsername() {
+    try {
+        // 백준 사이트 오른쪽 위에 있는 로그인된 사용자 ID
+        const usernameEl = document.querySelector('a.username');
+        if (usernameEl) {
+            const username = usernameEl.innerText.trim();
+            return username;
+        }
+        // 대체 방법: 로그인 링크가 없으면 로그인 안 된 상태
+        const loginLink = document.querySelector('a[href="/login"]');
+        if (loginLink) {
+            return null;
+        }
+        return null;
+    } catch (error) {
+        console.error('사용자 ID 확인 실패:', error);
+        return null;
+    }
+}
+
 // 테이블 행에서 제출 정보 추출
 function extractSubmissionInfo(row) {
     try {
@@ -65,13 +87,19 @@ function extractSubmissionInfo(row) {
                                 row.querySelector('a[href^="/status"]');
         const submissionId = submissionIdCell ? submissionIdCell.innerText.trim() : '';
         
+        // 제출한 사용자 ID 추출 (BaekjoonHub 방식 참고)
+        // 백준 status 테이블에서 사용자 정보는 보통 링크로 표시됨
+        const userLink = row.querySelector('a[href^="/user/"]');
+        const submittedBy = userLink ? userLink.innerText.trim() : null;
+        
         return {
             problemId,
             resultText,
             status,
             memory,
             time,
-            submissionId
+            submissionId,
+            submittedBy  // 제출한 사용자 ID 추가
         };
     } catch (error) {
         console.error('정보 추출 실패:', error);
@@ -213,6 +241,9 @@ async function sendToVSCode(data) {
 // 채점 상태 추적 시스템
 // ============================================
 
+// 현재 로그인된 사용자 ID 캐시 (페이지 로드 시 한 번만 확인)
+let cachedCurrentUsername = null;
+
 // 채점 중인 제출 추적 (제출 ID -> 추적 정보)
 // "채점 준비 중" 또는 "채점 중" 상태를 추적하고, 완료 결과로 바뀔 때만 전송
 const judgingSubmissions = new Map();
@@ -226,11 +257,24 @@ async function processTopRowSubmission() {
     const statusTable = document.querySelector('#status-table tbody');
     if (!statusTable) return;
     
+    // 현재 로그인된 사용자 ID는 이미 초기화 시 확인됨 (캐시 사용)
+    const currentUsername = cachedCurrentUsername;
+    if (!currentUsername) {
+        // 로그인되지 않은 상태에서는 처리하지 않음
+        return;
+    }
+    
     const firstRow = statusTable.querySelector('tr');
     if (!firstRow) return;
     
     const info = extractSubmissionInfo(firstRow);
     if (!info || !info.submissionId) return;
+    
+    // 제출한 사용자가 현재 로그인된 사용자와 일치하는지 확인
+    if (info.submittedBy && info.submittedBy !== currentUsername) {
+        // 다른 사용자의 제출은 무시 (로그는 최초 1번만)
+        return;
+    }
     
     const submissionId = info.submissionId;
     const isJudging = isJudgingStatus(info.resultText);
@@ -289,6 +333,7 @@ async function processTopRowSubmission() {
     
     console.log(`📊 채점 완료 감지: 문제 ${info.problemId} - ${info.resultText} (${info.status})`);
     console.log(`   ${trackingInfo.judgingStatus} → ${info.resultText}`);
+    console.log(`   사용자: ${info.submittedBy || currentUsername} (현재 로그인: ${currentUsername})`);
 
     // VSCode로 데이터 전송
     const serverResponse = await sendToVSCode({
@@ -298,6 +343,8 @@ async function processTopRowSubmission() {
         memory: info.memory,
         time: info.time,
         submissionId: submissionId,
+        submittedBy: info.submittedBy || currentUsername, // 제출한 사용자 정보 포함
+        currentUsername: currentUsername, // 현재 로그인된 사용자 정보 포함
         timestamp: new Date().toISOString()
     });
 
@@ -315,6 +362,14 @@ async function processTopRowSubmission() {
 // ============================================
 // DOM 모니터링 초기화
 // ============================================
+
+// 페이지 로드 시 최초 1번만 현재 로그인된 사용자 ID 확인
+cachedCurrentUsername = getCurrentUsername();
+if (cachedCurrentUsername) {
+    console.log(`👤 현재 로그인된 사용자: ${cachedCurrentUsername} (초기화 완료)`);
+} else {
+    console.log('⚠️ 로그인되지 않은 상태입니다. 채점 결과를 감지하지 않습니다.');
+}
 
 const statusTable = document.querySelector('#status-table tbody');
 
