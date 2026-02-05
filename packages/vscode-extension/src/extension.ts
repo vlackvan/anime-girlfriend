@@ -173,6 +173,37 @@ export async function activate(context: vscode.ExtensionContext) {
             });
             await vscode.window.showTextDocument(doc);
         }),
+        vscode.commands.registerCommand('anime-girlfriend.debugCodeContext', async () => {
+            const codeContext = codeContextProvider.buildContextString();
+            const codingState = codeContextProvider.getCodingState();
+            const activeContext = codeContextProvider.getActiveContext();
+
+            const content = '# Code Context Debug\n\n' +
+                '## Coding State\n' +
+                `- State: ${codingState.state}\n` +
+                `- Code Length: ${codingState.codeLength} chars\n` +
+                `- Has Errors: ${codingState.hasErrors ? 'Yes' : 'No'}\n` +
+                `- Has Warnings: ${codingState.hasWarnings ? 'No'}\n\n` +
+                '## Active File Info\n' +
+                (activeContext
+                    ? `- File Name: ${activeContext.fileName}\n` +
+                      `- File Path: ${activeContext.filePath}\n` +
+                      `- Language: ${activeContext.languageId}\n` +
+                      `- Content Length: ${activeContext.content.length} chars\n` +
+                      `- Selected Text: ${activeContext.selectedText ? `Yes (${activeContext.selectedText.length} chars)` : 'No'}\n` +
+                      `- Diagnostics: ${activeContext.diagnostics.length}\n\n`
+                    : '(No active editor)\n\n') +
+                '---\n\n' +
+                '## Context String (Sent to AI)\n\n' +
+                'This is exactly what gets sent to the AI as "code context":\n\n' +
+                codeContext;
+
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: 'markdown'
+            });
+            await vscode.window.showTextDocument(doc);
+        }),
         vscode.commands.registerCommand('anime-girlfriend.debugStorage', async () => {
             const profile = userDataStore.loadProfile();
             const currentProblem = userDataStore.getCurrentProblem();

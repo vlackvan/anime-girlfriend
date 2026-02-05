@@ -124,6 +124,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                     // Check if problem is new and generate solution if needed
                     if (message.problemId) {
                         await this.handleProblemSelection(message.problemId);
+
+                        // Automatically generate a brief problem summary from the character
+                        console.log(`[ChatPanel] Generating automatic problem summary for ${message.problemId}...`);
+                        await this.handleChatMessage(
+                            `(The user just selected problem #${message.problemId}. Give them a brief, friendly 1-2 sentence summary of what this problem is about and encourage them. Use your persona but keep it short and sweet.)`,
+                            true // hidden from user
+                        );
                     }
                     break;
 

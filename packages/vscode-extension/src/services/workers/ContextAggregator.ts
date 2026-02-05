@@ -125,6 +125,19 @@ export class ContextAggregator {
         const codeContext = this.codeContextProvider.buildContextString();
         console.log(`  [Worker A] Code context length: ${codeContext.length} chars`);
 
+        // Log code context details for debugging
+        const activeContext = this.codeContextProvider.getActiveContext();
+        if (activeContext) {
+            console.log(`  [Worker A] 📄 Active File: ${activeContext.fileName} (${activeContext.languageId})`);
+            console.log(`  [Worker A] 📊 Code Length: ${activeContext.content.length} chars`);
+            console.log(`  [Worker A] 🔍 Diagnostics: ${activeContext.diagnostics.length} (${activeContext.diagnostics.filter(d => d.severity === 'error').length} errors)`);
+            if (activeContext.selectedText) {
+                console.log(`  [Worker A] ✂️ Selected Text: ${activeContext.selectedText.length} chars`);
+            }
+        } else {
+            console.log(`  [Worker A] ⚠️ No active code file`);
+        }
+
         // Get user tier and hint level
         console.log(`  [Worker A] Loading user profile data...`);
         let userTier: number | undefined;
