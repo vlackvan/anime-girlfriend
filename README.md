@@ -17,6 +17,7 @@
 ### 🎯 핵심 기능
 
 - 🤖 **AI 채팅 인터페이스** – OpenAI GPT‑4o 기반 실시간 스트리밍 대화
+- 🚀 **이중 응답 파이프라인** – GPT‑4o‑mini 경량 응답 즉시 스트리밍 + GPT‑4o 정밀 전략 후속 제공으로 체감 지연 제거
 - 🎨 **애니메이션 캐릭터** – Aru(테크 긱 소녀) / Chihiro(차분한 멘토) 선택 가능
 - 💡 **단계적 힌트 시스템** – 문제별 다단계 힌트 제공 (스포일러 방지)
 - 🔍 **코드 컨텍스트 인식** – 현재 작성 중인 코드 자동 분석 및 오류 진단
@@ -84,21 +85,41 @@
   - 과거의 실패·성공을 상기시키며 **동기 부여**
   - “항상 나를 기억하는 동료” 느낌을 주어 **정서적 유대감**을 강화합니다.
 
-### 5) 3‑Worker Pipeline: What vs How
+### 5) 3‑Worker Pipeline + Dual‑Response Pipeline: What vs How
 
 내부적으로는 다음 3 워커가 협력합니다.
 
-1. **Context Aggregator**  
+1. **Context Aggregator**
    - 코드, Solved.ac, 힌트 레벨, 프로필, 캐시된 문제 정보를 모두 모아 `AggregatedContext` 구성
-2. **Strategy Agent**  
-   - `AggregatedContext` 기반으로  
+2. **Strategy Agent**
+   - `AggregatedContext` 기반으로
      “이번 턴에 어떤 힌트를, 어느 레벨로, 어느 깊이로 줄지”를 결정 (순수 튜터 로직)
-3. **Persona Wrapper**  
-   - Strategy Agent의 결과를 Aru/Chihiro의 SPC 프로필, CoD 성격 분석, Shared Memories와 섞어  
+3. **Persona Wrapper**
+   - Strategy Agent의 결과를 Aru/Chihiro의 SPC 프로필, CoD 성격 분석, Shared Memories와 섞어
      **캐릭터 말투와 감정, 추억 언급**이 담긴 최종 메시지로 변환
 
-덕분에 **교육 전략(what to teach)** 과 **캐릭터 연기(how to say)** 가 분리되어 있어,  
+덕분에 **교육 전략(what to teach)** 과 **캐릭터 연기(how to say)** 가 분리되어 있어,
 캐릭터를 바꾸더라도 튜터링 품질을 유지할 수 있고, 반대로 전략 A/B 테스트도 수월합니다.
+
+#### Dual‑Response Pipeline (이중 응답 파이프라인)
+
+AI 채팅의 스트리밍 응답 지연이 UX를 해치는 문제를 해결하기 위해, BOJ 문제 힌트 요청 시 **이중 파이프라인**이 동작합니다.
+
+```
+사용자 메시지 (BOJ 문제)
+    │
+    ├──▶ [GPT-4o-mini] ──▶ 경량 응답 (즉시 스트리밍)
+    │                        · 캐릭터 페르소나 유지한 공감/확인 메시지
+    │                        · 체감 대기 시간 최소화 (TTFT 대폭 단축)
+    │
+    └──▶ [GPT-4o]      ──▶ 정밀 전략 힌트 (병렬 생성 → 후속 제공)
+                             · Strategy Agent가 힌트 레벨에 맞춰 생성
+                             · Persona Wrapper가 캐릭터 톤으로 래핑 후 스트리밍
+```
+
+- 두 호출은 `Promise.all`로 **동시 실행**되어, 경량 응답이 먼저 스트리밍되는 동안 정밀 전략이 백그라운드에서 생성됩니다.
+- 경량 응답 완료 후 UI는 자동으로 새 스트리밍 메시지로 전환되어, 정밀 응답이 이어서 나타납니다.
+- 일반 대화(non‑BOJ)는 기존 단일 파이프라인을 그대로 사용합니다.
 
 ### 📊 Research → System 매핑 요약
 
@@ -110,6 +131,7 @@
 | Student Modeling / KC   | 문제·티어·힌트 레벨 기반 학습자 상태 추적    | 개인화된 힌트, 장기 학습 추적, KC 확장 가능성     |
 | IntelliCode‑style 구조 | 중앙 학습자 모델 + 다중 워커 아키텍처        | 모듈성, 확장성, 디버깅·연구 친화적인 설계         |
 | Future‑Self Letters     | Self‑Reflection + Shared Memories             | 정서적 유대감, 성장 서사, 동기 부여               |
+| Dual‑Response Pipeline  | 경량 모델 즉시 응답 + 정밀 모델 병렬 후속 제공 | 체감 지연 제거, TTFT 단축, 응답 품질 유지         |
 
 ---
 
@@ -139,14 +161,17 @@ graph TB
         I --> J2[UserDataStore<br/>프로필 로드]
         I --> J3[BaekjoonProblemService<br/>문제 정보 캐싱]
 
-        J1 --> K[컨텍스트 통합]
+        J1 --> K[Worker A<br/>컨텍스트 통합]
         J2 --> K
         J3 --> K
 
-        K --> L[System Prompt<br/>생성]
-        L --> M[OpenAI API<br/>GPT-4o-mini]
-        M --> N[스트리밍 응답]
-        N --> H
+        K --> L1[GPT-4o-mini<br/>경량 즉시 응답]
+        K --> L2[GPT-4o<br/>전략 힌트 생성]
+        L1 --> N1[즉시 스트리밍]
+        L2 --> M[Worker C<br/>Persona Wrapper]
+        M --> N2[후속 스트리밍]
+        N1 --> H
+        N2 --> H
         H --> G
         G --> O[👤 사용자 화면]
     end
@@ -183,36 +208,47 @@ graph TB
    └─ Solved.ac 프로필 자동 갱신
 ```
 
-### 2. AI 채팅 응답 생성 파이프라인
+### 2. AI 채팅 응답 생성 파이프라인 (이중 응답 파이프라인)
 
 ```
 [사용자 입력] "1149번 힌트 줘"
    ↓
 [ChatGPTService.sendMessage()]
    │
-   ├─→ [1단계] 컨텍스트 수집
+   ├─→ [1단계] Worker A: 컨텍스트 수집
    │      ├─ CodeContextProvider → 현재 파일 정보, 에러 진단
    │      ├─ BaekjoonProblemService → 문제 설명 (solved.ac API)
    │      ├─ UserDataStore → 사용자 프로필 (성격 분석, 코어 메모리)
-   │      └─ 현재 힌트 레벨 확인 (0→1→2→3)
+   │      └─ 현재 힌트 레벨 확인 (0→1→2→3→4)
    │
-   ├─→ [2단계] System Prompt 생성
-   │      ├─ CHARACTER PROFILE (Aru/Chihiro 캐릭터 설정)
-   │      ├─ USER ANALYSIS (사용자 성격 분석)
-   │      ├─ CORE MEMORIES (5가지 공유 기억)
-   │      ├─ PROBLEM CONTEXT (문제 정보 + 현재 힌트 레벨)
-   │      └─ CODE CONTEXT (현재 코드 상태)
+   ├─→ [2단계] Dual Pipeline: 병렬 실행 (Promise.all)
+   │      │
+   │      ├─ [GPT-4o-mini] Quick Response (즉시 스트리밍)
+   │      │    · 캐릭터 페르소나 유지한 1-2문장 공감/확인
+   │      │    · onToken → 토큰 단위로 UI 실시간 업데이트
+   │      │    · 사용자는 즉시 응답을 볼 수 있음
+   │      │
+   │      └─ [GPT-4o] Worker B: Strategy Agent (백그라운드)
+   │           · 힌트 레벨(0-4)에 맞는 전략 힌트 생성
+   │           · 티어 갭 기반 설명 깊이 조절
+   │           · 문제 설명 + 솔루션 요약 참조
    │
-   ├─→ [3단계] OpenAI API 호출
-   │      ├─ Model: gpt-4o-mini (텍스트) / gpt-4o (이미지)
-   │      ├─ Stream: true (Server-Sent Events)
-   │      └─ Temperature: 0.7
+   ├─→ [3단계] onQuickComplete → UI 전환
+   │      ├─ 경량 응답 메시지 완료 처리
+   │      └─ 새 스트리밍 메시지 placeholder 생성
    │
-   └─→ [4단계] 스트리밍 응답
-          ├─ onToken → 토큰 단위로 UI 업데이트
-          ├─ onComplete → 대화 히스토리 저장
-          └─ 힌트 레벨 업데이트 (0→1→2→3)
+   ├─→ [4단계] Worker C: Persona Wrapper (스트리밍)
+   │      ├─ Strategy Agent 힌트를 캐릭터 톤으로 래핑
+   │      ├─ SPC 프로필 + CoD 분석 + Shared Memories 결합
+   │      ├─ onToken → 정밀 응답 실시간 스트리밍
+   │      └─ 장문 응답 시 자동 메시지 분할
+   │
+   └─→ [5단계] 완료
+          ├─ onComplete → 대화 히스토리 저장 (경량 + 정밀 통합)
+          └─ 힌트 레벨 업데이트 (0→1→2→3→4)
 ```
+
+> **일반 대화(non-BOJ)** 의 경우 이중 파이프라인 없이 Worker C(Persona Wrapper)만 직접 실행됩니다.
 
 ### 3. 온보딩 파이프라인 (Chain-of-Density)
 
@@ -486,11 +522,13 @@ class BaekjoonProblemService {
 - **타입 안정성**: TypeScript 5.0
 
 ### AI/ML
-| 컴포넌트 | 기술 | 버전 |
+| 컴포넌트 | 기술 | 용도 |
 |---------|------|------|
-| **LLM** | OpenAI GPT-4o / GPT-4o-mini | Latest |
-| **성격 분석** | Chain-of-Density (CoD) | GPT-4o |
-| **문제 요약** | GPT-4o-mini | Latest |
+| **전략 힌트 생성** | OpenAI GPT-4o | Worker B: 정밀 힌트 생성 (비스트리밍) |
+| **경량 즉시 응답** | OpenAI GPT-4o-mini | Dual Pipeline: 공감/확인 즉시 스트리밍 |
+| **페르소나 래핑** | OpenAI GPT-4o-mini | Worker C: 캐릭터 톤 변환 (스트리밍) |
+| **성격 분석** | Chain-of-Density (CoD) | 온보딩: 3문장 초밀집 성격 분석 |
+| **문제 요약** | GPT-4o-mini | 문제 솔루션 전략 캐싱 |
 
 ### Browser Extension
 - **Manifest Version**: 3
