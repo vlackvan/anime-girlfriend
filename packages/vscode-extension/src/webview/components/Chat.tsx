@@ -141,6 +141,25 @@ export const Chat: React.FC<ChatProps> = ({ character, profile, historyLength = 
                     setIsLoading(false);
                     break;
 
+                case 'botMessageQuickComplete':
+                    // Dual pipeline: quick response done, follow-up message starting
+                    setMessages(prev => {
+                        const updated = prev.map(msg =>
+                            msg.id === streamingMessageId
+                                ? { ...msg, content: message.content, isStreaming: false }
+                                : msg
+                        );
+                        return [...updated, {
+                            id: message.followUpId,
+                            author: 'bot' as const,
+                            content: '',
+                            isStreaming: true
+                        }];
+                    });
+                    setStreamingMessageId(message.followUpId);
+                    // isLoading stays true — follow-up response is coming
+                    break;
+
                 case 'botMessageSplit':
                     // Add a new split message (multiple messages for long responses)
                     const splitMessageId = Date.now().toString() + Math.random().toString(36).substr(2, 9);

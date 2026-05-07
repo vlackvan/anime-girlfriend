@@ -11,6 +11,7 @@ import { StrategyAgent } from './services/workers/StrategyAgent';
 import { PersonaWrapper } from './services/workers/PersonaWrapper';
 import { PersonaPromptBuilder } from './services/prompts/PersonaPromptBuilder';
 import { AggregatedContext } from './types/PipelineTypes';
+import { getCharacter } from './characters';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant';
@@ -20,6 +21,7 @@ export interface ChatMessage {
 export interface StreamCallbacks {
     onToken: (token: string) => void;
     onComplete: (fullResponse: string, newHintLevel?: number) => void;
+    onQuickComplete?: (quickContent: string) => void; // Dual pipeline: quick response done, follow-up starting
     onMessage?: (message: string, isLast: boolean) => void; // For split messages
     onError: (error: Error) => void;
 }
@@ -146,77 +148,92 @@ export class ChatGPTService {
             console.log(`  - Code Context Length: ${context.codeContext.length} chars`);
             console.log(`\n📦 [Worker A → Worker B] Context Object:`, context);
 
-            // Step 2: Worker B - Logic & Strategy Agent (only for BOJ problems)
-            let strategyHint = '';
+            // Step 2: Dual Pipeline (BOJ) or Direct Response (non-BOJ)
             if (context.problemId) {
-                console.log(`\n🧠 [Worker B] Logic & Strategy Agent - Starting...`);
-                console.log(`Input: User Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
-                console.log(`Input: Context (problemId=${context.problemId}, hintLevel=${context.hintLevel})`);
+                // ═══ DUAL PIPELINE: Quick Response (GPT-4o-mini) + Strategy Hint (GPT-4o) in parallel ═══
+                console.log(`\n🚀 [Dual Pipeline] Starting parallel execution for problem ${context.problemId}...`);
 
-                // Increment hint level BEFORE generating hint if shouldAdvanceHint is true
-                // This ensures the advance prompt queries at the NEXT level, not current level
+                // Handle hint advancement before parallel calls
                 if (shouldAdvanceHint) {
                     const oldHintLevel = context.hintLevel;
                     const newHintLevel = await this.userDataStore.incrementHintLevel(context.problemId);
-                    context.hintLevel = newHintLevel; // Update context BEFORE strategy generation
-                    console.log(`  - Hint Level Advanced: ${oldHintLevel} → ${newHintLevel} (before hint generation)`);
+                    context.hintLevel = newHintLevel;
+                    console.log(`  - Hint Level Advanced: ${oldHintLevel} → ${newHintLevel}`);
                 } else {
                     console.log(`  - Hint Level: ${context.hintLevel} (no advancement)`);
                 }
 
-                console.log('[ChatGPTService] Calling strategyAgent.generateHint()...');
-                strategyHint = await this.strategyAgent.generateHint(userMessage, context, apiKey);
-                console.log('[ChatGPTService] Strategy hint generation completed, hint length:', strategyHint.length);
+                // Run quick GPT-4o-mini response AND Worker B (GPT-4o strategy) in parallel
+                console.log(`  [Quick Response] GPT-4o-mini streaming to UI immediately...`);
+                console.log(`  [Worker B] GPT-4o generating strategy hint in background...`);
 
-                // Log Worker B output
-                console.log(`\n✅ [Worker B] Strategy Hint Generated:`);
-                console.log(`  - Hint Level Used: ${context.hintLevel}`);
-                console.log(`  - Hint Length: ${strategyHint.length} chars`);
-                console.log(`  - Hint Content: "${strategyHint}"`);
-                console.log(`\n📦 [Worker B → Worker C] Strategy Hint:`, strategyHint);
+                const quickStartTime = Date.now();
+                const [quickResponse, strategyHint] = await Promise.all([
+                    this.generateQuickResponse(userMessage, context, apiKey, callbacks),
+                    this.strategyAgent.generateHint(userMessage, context, apiKey)
+                ]);
+                const parallelTime = Date.now() - quickStartTime;
+
+                console.log(`\n✅ [Dual Pipeline] Parallel phase completed in ${parallelTime}ms`);
+                console.log(`  - Quick Response (${quickResponse.length} chars): "${quickResponse.substring(0, 80)}..."`);
+                console.log(`  - Strategy Hint (${strategyHint.length} chars): "${strategyHint.substring(0, 80)}..."`);
+
+                // Signal quick response is complete → UI transitions to follow-up streaming message
+                if (callbacks.onQuickComplete) {
+                    callbacks.onQuickComplete(quickResponse);
+                }
+
+                // Step 3: Worker C - Persona Wrapper with strategy hint (streams into follow-up message)
+                console.log(`\n🎭 [Worker C] Persona Wrapper - Wrapping strategy hint with persona...`);
+
+                const finalResponse = await this.personaWrapper.wrap(
+                    userMessage,
+                    strategyHint,
+                    context,
+                    apiKey,
+                    images,
+                    this.conversationHistory,
+                    callbacks
+                );
+
+                console.log(`\n✅ [Worker C] Final Response (${finalResponse.length} chars): "${finalResponse.substring(0, 150)}..."`);
+
+                // Add to conversation history (combine both responses for context continuity)
+                this.conversationHistory.push({ role: 'user', content: userMessage });
+                this.conversationHistory.push({ role: 'assistant', content: quickResponse + '\n\n' + finalResponse });
+
+                console.log(`\n${'='.repeat(80)}`);
+                console.log(`[${new Date().toISOString()}] Dual Pipeline Completed`);
+                console.log(`${'='.repeat(80)}\n`);
+
+                callbacks.onComplete(finalResponse, context.hintLevel);
+
             } else {
+                // ═══ SINGLE PIPELINE: Direct persona response (non-BOJ) ═══
                 console.log(`\n⏭️  [Worker B] Skipped (No BOJ problem detected)`);
-                console.log(`\n📦 [Worker B → Worker C] Using original message`);
+                console.log(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
+
+                const finalResponse = await this.personaWrapper.wrap(
+                    userMessage,
+                    userMessage,
+                    context,
+                    apiKey,
+                    images,
+                    this.conversationHistory,
+                    callbacks
+                );
+
+                console.log(`\n✅ [Worker C] Final Response (${finalResponse.length} chars): "${finalResponse.substring(0, 150)}..."`);
+
+                this.conversationHistory.push({ role: 'user', content: userMessage });
+                this.conversationHistory.push({ role: 'assistant', content: finalResponse });
+
+                console.log(`\n${'='.repeat(80)}`);
+                console.log(`[${new Date().toISOString()}] Pipeline Completed`);
+                console.log(`${'='.repeat(80)}\n`);
+
+                callbacks.onComplete(finalResponse, context.hintLevel);
             }
-
-            // Step 3: Worker C - Persona Wrapper Agent
-            console.log(`\n🎭 [Worker C] Persona Wrapper Agent - Starting...`);
-            console.log(`Input: Original Message = "${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}"`);
-            console.log(`Input: Strategy Hint = "${strategyHint || '(using original message)'}"`);
-            console.log(`Input: Context (character=${this.userProfile?.character || 'unknown'})`);
-            console.log('[ChatGPTService] Calling personaWrapper.wrap()...');
-
-            const finalResponse = await this.personaWrapper.wrap(
-                userMessage,
-                strategyHint || userMessage, // Use strategy hint if available, otherwise original message
-                context,
-                apiKey,
-                images,
-                this.conversationHistory,
-                callbacks
-            );
-
-            // Log Worker C output
-            console.log(`\n✅ [Worker C] Final Response Generated:`);
-            console.log(`  - Response Length: ${finalResponse.length} chars`);
-            console.log(`  - Response Preview: "${finalResponse.substring(0, 150)}${finalResponse.length > 150 ? '...' : ''}"`);
-            console.log(`\n📦 [Worker C → User] Final Response:`, finalResponse);
-
-            // Add to conversation history
-            this.conversationHistory.push({
-                role: 'user',
-                content: userMessage
-            });
-            this.conversationHistory.push({
-                role: 'assistant',
-                content: finalResponse
-            });
-
-            console.log(`\n${'='.repeat(80)}`);
-            console.log(`[${new Date().toISOString()}] Pipeline Completed`);
-            console.log(`${'='.repeat(80)}\n`);
-
-            callbacks.onComplete(finalResponse, context.hintLevel);
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -228,6 +245,87 @@ export class ChatGPTService {
             console.error('[ChatGPTService] Full error object:', error);
             callbacks.onError(error instanceof Error ? error : new Error(String(error)));
         }
+    }
+
+    /**
+     * Dual Pipeline: Generate a quick acknowledgment response via GPT-4o-mini (streamed immediately)
+     * Runs in parallel with Worker B (GPT-4o strategy hint) to eliminate perceived latency.
+     */
+    private async generateQuickResponse(
+        userMessage: string,
+        context: AggregatedContext,
+        apiKey: string,
+        callbacks: StreamCallbacks
+    ): Promise<string> {
+        const character = this.userProfile?.character || 'aru';
+        const characterDef = getCharacter(character);
+        const charName = characterDef.config.name;
+
+        const systemPrompt = `You are ${charName}. The user is asking about BOJ problem #${context.problemId || 'unknown'}.
+Give a brief 1-2 sentence acknowledgment IN CHARACTER in Korean.
+Show you understand their question and you're analyzing the problem.
+Be warm, encouraging, and natural — match your character's speaking style.
+Do NOT give any hints, solutions, or technical advice. Just acknowledge.`;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...this.conversationHistory.slice(-4),
+                    { role: 'user', content: userMessage }
+                ],
+                stream: true,
+                temperature: 0.8,
+                max_tokens: 100
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            console.error(`[Quick Response] API Error: ${response.status}`, error);
+            throw new Error(error.error?.message || `Quick response API Error: ${response.status}`);
+        }
+
+        if (!response.body) {
+            throw new Error('No response body for quick response');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        const content = parsed.choices?.[0]?.delta?.content;
+                        if (content) {
+                            fullResponse += content;
+                            callbacks.onToken(content);
+                        }
+                    } catch {
+                        // Ignore parse errors for incomplete chunks
+                    }
+                }
+            }
+        }
+
+        return fullResponse;
     }
 
     /**

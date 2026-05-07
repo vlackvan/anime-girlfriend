@@ -453,6 +453,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
                         });
                     }
                 },
+                onQuickComplete: (quickContent) => {
+                    // Dual pipeline: quick response done, transition to follow-up streaming message
+                    const followUpId = Date.now().toString();
+                    this.postMessage({
+                        type: 'botMessageQuickComplete',
+                        content: quickContent,
+                        followUpId: followUpId
+                    });
+                },
                 onMessage: (message, isLast) => {
                     // Send a split message
                     this.postMessage({
