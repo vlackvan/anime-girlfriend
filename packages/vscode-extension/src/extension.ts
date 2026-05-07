@@ -55,34 +55,41 @@ export async function activate(context: vscode.ExtensionContext) {
     const localServer = new LocalServer(
         port,
         async (data) => {
-            console.log('[Anime Girlfriend] BOJ Success:', data);
-            chatPanel.showOverlay(data.problemId);
+            console.log('[Anime Girlfriend] BOJ Judge Result:', data);
+            console.log(`[Anime Girlfriend] Status: ${data.status}, Problem: ${data.problemId}`);
+            
+            // showJudgeResult를 사용하여 올바른 status 전달
+            chatPanel.showJudgeResult(data);
 
-            // Auto-refresh Solved.ac profile after solving a problem
-            try {
-                const profile = userDataStore.loadProfile();
-                if (profile && profile.solvedAcData && 'handle' in profile.solvedAcData) {
-                    const handle = profile.solvedAcData.handle;
-                    console.log(`[Anime Girlfriend] Refreshing Solved.ac stats for: ${handle}`);
+            // 정답일 경우에만 Solved.ac 프로필 업데이트
+            if (data.status === 'accepted') {
+                try {
+                    const profile = userDataStore.loadProfile();
+                    if (profile && profile.solvedAcData && 'handle' in profile.solvedAcData) {
+                        const handle = profile.solvedAcData.handle;
+                        console.log(`[Anime Girlfriend] Refreshing Solved.ac stats for: ${handle}`);
 
-                    const solvedAcService = new (await import('./SolvedAcService')).SolvedAcService();
-                    const updatedStats = await solvedAcService.getStatsSummary(handle);
+                        const solvedAcService = new (await import('./SolvedAcService')).SolvedAcService();
+                        const updatedStats = await solvedAcService.getStatsSummary(handle);
 
-                    // Update profile with new stats
-                    await userDataStore.updateSolvedAcData(updatedStats);
+                        // Update profile with new stats
+                        await userDataStore.updateSolvedAcData(updatedStats);
 
-                    // Refresh ChatGPT service with updated profile
-                    const refreshedProfile = userDataStore.loadProfile();
-                    if (refreshedProfile) {
-                        chatGPTService.setUserProfile(refreshedProfile);
+                        // Refresh ChatGPT service with updated profile
+                        const refreshedProfile = userDataStore.loadProfile();
+                        if (refreshedProfile) {
+                            chatGPTService.setUserProfile(refreshedProfile);
+                        }
+
+                        console.log('[Anime Girlfriend] Profile refreshed successfully');
+                        vscode.window.showInformationMessage(`✅ Profile updated! Solved: ${updatedStats.solvedCount} problems`);
                     }
-
-                    console.log('[Anime Girlfriend] Profile refreshed successfully');
-                    vscode.window.showInformationMessage(`✅ Profile updated! Solved: ${updatedStats.solvedCount} problems`);
+                } catch (error) {
+                    console.error('[Anime Girlfriend] Failed to refresh profile:', error);
+                    // Don't show error to user, just log it
                 }
-            } catch (error) {
-                console.error('[Anime Girlfriend] Failed to refresh profile:', error);
-                // Don't show error to user, just log it
+            } else {
+                console.log(`[Anime Girlfriend] Not accepted (${data.status}), skipping profile update`);
             }
         },
         () => {
